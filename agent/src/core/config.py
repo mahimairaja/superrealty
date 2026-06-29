@@ -17,6 +17,11 @@ class Config(BaseSettings):
     ENV: str = "prod"
     PROJECT_NAME: str = "Voice Agent"
 
+    # Hard cap on call length in seconds (cost guard for STT/LLM/TTS).
+    AGENT_MAX_CALL_SECONDS: int = 600
+    # Backend base URL the agent's tools call (the realty memory/recall API).
+    BACKEND_URL: str = "http://localhost:8000"
+
     # Optional error tracking.
     SENTRY_DSN: str | None = None
 

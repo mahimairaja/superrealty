@@ -14,7 +14,7 @@ from livekit.agents import (
 from livekit.plugins import cartesia, deepgram, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-from src.agents.assistant import Assistant
+from src.agents.agent_realty import RealtyAgent
 from src.core.config import config
 from src.core.events import register_event_handlers
 from src.utils.room import identify
@@ -77,7 +77,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     ctx.add_shutdown_callback(_on_shutdown)
 
-    await session.start(agent=Assistant(), room=ctx.room)
+    await session.start(agent=RealtyAgent(), room=ctx.room)
     # Opt-in web mic cleanup: `uv add livekit-plugins-noise-cancellation`, then
     # pass `room_input_options=RoomInputOptions(noise_cancellation=BVC())` above
     # (import: `from livekit.agents import RoomInputOptions`,
