@@ -65,7 +65,9 @@ jobs:
         run: uv sync --group dev
 
       - name: Run tests with coverage
-        run: uv run python -m pytest --cov=src --cov-report=xml
+        # Integration tests need live Cognee + Neo4j + pgvector + OpenAI; they run in the
+        # local loop gate, not in CI. CI runs the fast unit suite only.
+        run: uv run python -m pytest -m "not integration" --cov=src --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
