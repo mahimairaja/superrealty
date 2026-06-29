@@ -20,7 +20,9 @@ dependencies = [
   "pydantic-settings>=2.14.1",
   "pydantic[email]>=2.13.4",
   "pyjwt>=2.10.0",
+  "pypdf>=6.14.2",
   "python-dotenv>=1.2.2",
+  "selectolax>=0.4.10",
   "sentry-sdk>=2.0.0",
   "sqlmodel>=0.0.38",
 ]
@@ -70,6 +72,10 @@ typeCheckingMode = "off"
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Session-scoped loop so Cognee's process-wide async engine (bound to the first loop it
+# runs on) survives across multiple async integration tests.
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 markers = [
   "integration: requires live external services (Cognee, Neo4j, pgvector, OpenAI)",
 ]
