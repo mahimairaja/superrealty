@@ -3,7 +3,7 @@ from functools import lru_cache
 from urllib.parse import parse_qsl, quote_plus, urlencode, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.enums import EnvironmentOption
@@ -190,6 +190,18 @@ class Config(BaseSettings):
     LIVEKIT_URL: str | None = None
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: SecretStr | None = None
+
+    # cal.com booking (the realtor's showing calendar). Without these, availability and
+    # bookings degrade to a spoken fallback. RR_CAL_EVENT_TYPE_ID is the new showings event.
+    CAL_API_KEY: SecretStr | None = None
+    RR_CAL_EVENT_TYPE_ID: int | None = None
+    CAL_DEFAULT_TIMEZONE: str = "America/Toronto"
+
+    @field_validator("RR_CAL_EVENT_TYPE_ID", mode="before")
+    @classmethod
+    def _blank_int_to_none(cls, v: object) -> object:
+        # Empty env values (e.g. RR_CAL_EVENT_TYPE_ID=) are common; treat as unset.
+        return None if v in ("", None) else v
 
     # find query
     PAGE: int = 1
