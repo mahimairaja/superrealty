@@ -17,6 +17,7 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from src.agents.agent_realty import RealtyAgent
 from src.core.config import config
 from src.core.events import register_event_handlers
+from src.runtime.observers import post_call_log
 from src.utils.room import identify
 
 logger = logging.getLogger("agent")
@@ -70,14 +71,21 @@ async def entrypoint(ctx: JobContext) -> None:
         ),
     )
 
+    realty_agent = RealtyAgent()
     log_usage_summary = register_event_handlers(session)
 
     async def _on_shutdown() -> None:
         log_usage_summary()
+        # Persist the call log and fold the conversation into permanent memory.
+        await post_call_log(
+            realty_agent._api,
+            ctx.room.name,
+            buyer_phone=realty_agent.last_phone,
+        )
 
     ctx.add_shutdown_callback(_on_shutdown)
 
-    await session.start(agent=RealtyAgent(), room=ctx.room)
+    await session.start(agent=realty_agent, room=ctx.room)
     # Opt-in web mic cleanup: `uv add livekit-plugins-noise-cancellation`, then
     # pass `room_input_options=RoomInputOptions(noise_cancellation=BVC())` above
     # (import: `from livekit.agents import RoomInputOptions`,

@@ -29,3 +29,14 @@ async def get_buyer(
     # means a new (or forgotten) buyer, so the agent opens as if it is a first call.
     result = await get_memory_store().get_buyer(phone)
     return BuyerRecall(**result)
+
+
+@router.delete("/{phone}")
+async def forget_buyer(
+    phone: str,
+    _: None = Depends(enforce_widget_guard),
+) -> dict[str, object]:
+    # Forget on request: remove exactly this buyer's Cognee dataset. A later call from
+    # this phone is then treated as a brand-new buyer with no history.
+    await get_memory_store().forget_buyer(phone)
+    return {"forgotten": True, "phone": phone}

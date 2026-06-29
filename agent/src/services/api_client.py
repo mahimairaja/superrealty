@@ -55,3 +55,15 @@ class BackendApiClient:
     async def book_showing(self, booking: dict[str, Any]) -> dict[str, Any]:
         """Book an in-person showing (idempotent by idempotency_key)."""
         return await self._post("/api/v1/bookings", booking)
+
+    async def forget_buyer(self, phone: str) -> dict[str, Any]:
+        """Forget a buyer on request (removes their Cognee dataset)."""
+        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
+            resp = await client.delete(f"{self._base_url}/api/v1/buyers/{phone}")
+            resp.raise_for_status()
+            data: dict[str, Any] = resp.json()
+        return data
+
+    async def close_call(self, room: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Persist the call log and fold the conversation into permanent memory."""
+        return await self._post(f"/api/v1/calls/{room}/close", payload)
