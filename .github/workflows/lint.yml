@@ -88,3 +88,6 @@ jobs:
 
       - name: Typecheck
         run: pnpm exec tsc -b
+
+      - name: Build
+        run: pnpm build
