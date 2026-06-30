@@ -57,11 +57,11 @@ jobs:
           fi
       - name: Deploy to Vercel
         if: steps.guard.outputs.skip != 'true'
+        # Build remotely on Vercel (it has pnpm/corepack via packageManager); a local
+        # `vercel build` would need pnpm preinstalled on the runner.
         run: |
           npm i -g vercel@latest
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN"
 
   deploy-backend:
     needs: changes
