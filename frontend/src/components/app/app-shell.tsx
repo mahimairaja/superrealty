@@ -1,12 +1,21 @@
 import { NavLink, Outlet } from "react-router-dom";
+import {
+  OrganizationSwitcher,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+} from "@clerk/clerk-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { to: "/onboard", label: "Listings" },
-  { to: "/call", label: "Assistant" },
-  { to: "/pipeline", label: "Pipeline" },
-];
+function navClass({ isActive }: { isActive: boolean }) {
+  return cn(
+    "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+    isActive && "bg-accent text-accent-foreground",
+  );
+}
 
 export function AppShell() {
   return (
@@ -20,22 +29,32 @@ export function AppShell() {
             </span>
           </NavLink>
           <nav className="hidden items-center gap-1 sm:flex">
-            {NAV.map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                    isActive && "bg-accent text-accent-foreground",
-                  )
-                }
-              >
-                {n.label}
+            <NavLink to="/call" className={navClass}>
+              Assistant
+            </NavLink>
+            <SignedIn>
+              <NavLink to="/onboard" className={navClass}>
+                Listings
               </NavLink>
-            ))}
+              <NavLink to="/pipeline" className={navClass}>
+                Pipeline
+              </NavLink>
+            </SignedIn>
           </nav>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            <SignedIn>
+              <OrganizationSwitcher
+                hidePersonal
+                afterSelectOrganizationUrl="/pipeline"
+                afterCreateOrganizationUrl="/pipeline"
+              />
+              <UserButton />
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal">
+                <Button size="sm">Sign in</Button>
+              </SignInButton>
+            </SignedOut>
             <ThemeToggle />
           </div>
         </div>

@@ -5,6 +5,18 @@ const TOKEN_ENDPOINT =
 
 export const API_BASE = TOKEN_ENDPOINT.replace(/\/token$/, "");
 
+// Console requests carry the Clerk session JWT; the backend resolves the tenant from it.
+// The public buyer call widget (token-source) stays unauthenticated.
+async function authHeaders(): Promise<Record<string, string>> {
+  const clerk = (
+    window as unknown as {
+      Clerk?: { session?: { getToken: () => Promise<string | null> } };
+    }
+  ).Clerk;
+  const token = clerk?.session ? await clerk.session.getToken() : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export interface ListingDraft {
   id: string;
   code?: string | null;
@@ -58,12 +70,18 @@ export async function onboard(realtor: string, file: File): Promise<OnboardRespo
   form.set("realtor", realtor);
   form.set("authorized", "true");
   form.set("file", file);
-  const res = await fetch(`${API_BASE}/onboard`, { method: "POST", body: form });
+  const res = await fetch(`${API_BASE}/onboard`, {
+    method: "POST",
+    body: form,
+    headers: await authHeaders(),
+  });
   return asJSON<OnboardResponse>(res, "onboard");
 }
 
 export async function listListings(realtor: string): Promise<ListingDraft[]> {
-  const res = await fetch(withRealtor("/listings", realtor));
+  const res = await fetch(withRealtor("/listings", realtor), {
+    headers: await authHeaders(),
+  });
   return asJSON<ListingDraft[]>(res, "listListings");
 }
 
@@ -74,7 +92,7 @@ export async function patchListing(
 ): Promise<ListingDraft> {
   const res = await fetch(withRealtor(`/listings/${id}`, realtor), {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(patch),
   });
   return asJSON<ListingDraft>(res, "patchListing");
@@ -83,6 +101,7 @@ export async function patchListing(
 export async function deleteListing(realtor: string, id: string): Promise<void> {
   const res = await fetch(withRealtor(`/listings/${id}`, realtor), {
     method: "DELETE",
+    headers: await authHeaders(),
   });
   if (!res.ok && res.status !== 204) {
     throw new Error(`deleteListing failed: ${res.status}`);
@@ -97,11 +116,14 @@ export async function confirmOnboard(
   const res = await fetch(`${API_BASE}/onboard/confirm`, {
     method: "POST",
     body: form,
+    headers: await authHeaders(),
   });
   return asJSON<{ realtor: string; inserted: number }>(res, "confirmOnboard");
 }
 
 export async function getPipeline(): Promise<PipelineResponse> {
-  const res = await fetch(`${API_BASE}/pipeline`);
+  const res = await fetch(`${API_BASE}/pipeline`, {
+    headers: await authHeaders(),
+  });
   return asJSON<PipelineResponse>(res, "getPipeline");
 }
