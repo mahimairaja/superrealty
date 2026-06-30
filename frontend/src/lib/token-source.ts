@@ -7,4 +7,4 @@ export const tokenSource = TokenSource.endpoint(
 );
 
 // Must match the agent worker's agent_name (AGENT_NAME in the agent package).
-export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "assistant";
+export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "realty";
