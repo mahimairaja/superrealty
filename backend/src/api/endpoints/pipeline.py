@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from src.core.widget_guard import enforce_widget_guard
+from src.core.clerk import CurrentTenant
 from src.repository import booking_repository, call_log_repository
 from src.schemas.pipeline_schemas import (
     PipelineBooking,
@@ -12,11 +12,12 @@ router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 
 @router.get("", response_model=PipelineResponse)
-async def pipeline(_: None = Depends(enforce_widget_guard)) -> PipelineResponse:
+async def pipeline(tenant_id: CurrentTenant) -> PipelineResponse:
     # The realtor view: recent bookings and calls (the connected homes and tracked buyers
-    # live in Cognee and are shown via the memory-graph visualization).
-    bookings = await booking_repository.list_recent()
-    calls = await call_log_repository.list_recent()
+    # live in Cognee and are shown via the memory-graph visualization). Scoped to the
+    # signed-in realtor's tenant (Clerk org), so one realtor never sees another's pipeline.
+    bookings = await booking_repository.list_recent(tenant_id=tenant_id)
+    calls = await call_log_repository.list_recent(tenant_id=tenant_id)
     return PipelineResponse(
         bookings=[
             PipelineBooking(
