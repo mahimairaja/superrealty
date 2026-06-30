@@ -200,6 +200,28 @@ class MemoryStore:
         )
         return results
 
+    async def match_buyers(self, listing: dict[str, Any]) -> str:
+        """Find buyers whose stated criteria match a (newly added) listing, with which of
+        their wishes it meets. Searches the default graph (typed Buyer + Listing nodes).
+        """
+        await ensure_cognee()
+        parts: list[str] = []
+        if listing.get("area"):
+            parts.append(f"in {listing['area']}")
+        if listing.get("beds"):
+            parts.append(f"{listing['beds']} bedrooms")
+        if listing.get("price"):
+            parts.append(f"around {listing['price']}")
+        desc = ", ".join(parts) if parts else "this home"
+        query = (
+            f"A new home is available ({desc}). Which remembered buyers are looking for a "
+            "home like this? Name each matching buyer and which of their wishes it meets."
+        )
+        results: list[Any] = await cognee.search(
+            query_text=query, query_type=SearchType.GRAPH_COMPLETION, top_k=5
+        )
+        return str(results[0]) if results else ""
+
     async def upsert_buyer(self, buyer: dict[str, Any]) -> dict[str, Any]:
         await ensure_cognee()
         node = Buyer(
