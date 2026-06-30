@@ -197,6 +197,11 @@ class Config(BaseSettings):
     RR_CAL_EVENT_TYPE_ID: int | None = None
     CAL_DEFAULT_TIMEZONE: str = "America/Toronto"
 
+    # Telnyx SMS: the post-call lead handoff to the realtor. Without all three, no SMS.
+    TELNYX_API_KEY: SecretStr | None = None
+    TELNYX_FROM_NUMBER: str | None = None
+    REALTOR_SMS_TO: str | None = None
+
     @field_validator("RR_CAL_EVENT_TYPE_ID", mode="before")
     @classmethod
     def _blank_int_to_none(cls, v: object) -> object:

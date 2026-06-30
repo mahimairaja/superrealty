@@ -13,6 +13,8 @@ class CallClose(BaseModel):
     buyer_phone: str | None = None
     booking_id: int | None = None
     transcript: list[dict[str, Any]] | None = None
+    # Optional lead-handoff summary the agent composes for the realtor SMS.
+    summary: str | None = None
 
 
 class CallCloseResponse(BaseModel):
