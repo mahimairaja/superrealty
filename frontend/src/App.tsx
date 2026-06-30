@@ -27,6 +27,8 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Hub />} />
           <Route path="/call" element={<Call />} />
+          {/* A realtor's public buyer line: the tenant slug scopes the agent's memory. */}
+          <Route path="/call/:tenantSlug" element={<Call />} />
           <Route
             path="/onboard"
             element={

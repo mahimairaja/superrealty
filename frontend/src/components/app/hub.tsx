@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SignedIn } from "@clerk/clerk-react";
 import {
   ArrowRight,
   CalendarCheck,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CallLinkCard } from "@/components/app/call-link-card";
 
 const FEATURES = [
   {
@@ -60,6 +62,12 @@ export default function Hub() {
           </Button>
         </div>
       </section>
+
+      <SignedIn>
+        <section className="pb-10">
+          <CallLinkCard />
+        </section>
+      </SignedIn>
 
       <section className="grid gap-4 pb-20 sm:grid-cols-3">
         {FEATURES.map((f) => (
