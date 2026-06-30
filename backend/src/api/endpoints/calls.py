@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from src.core.config import config
+from src.core.tenant import tenant_from_room_name
 from src.core.widget_guard import enforce_widget_guard
 from src.memory.store import buyer_dataset, get_memory_store
 from src.repository import call_log_repository
@@ -27,7 +28,12 @@ async def close_call(
 ) -> CallCloseResponse:
     # Persist the call log, then fold the conversation into permanent memory so the latest
     # buyer understanding wins (improve is best-effort and never breaks the close).
-    row = await call_log_repository.create({"room_name": room, **payload.model_dump()})
+    # The tenant is recovered from the room name (t_{tenant}_{random}), which the backend
+    # minted and LiveKit signed, so it stamps the row to the right realtor.
+    tenant_id = tenant_from_room_name(room)
+    row = await call_log_repository.create(
+        {"room_name": room, "tenant_id": tenant_id, **payload.model_dump()}
+    )
     if payload.buyer_phone:
         try:
             await get_memory_store().improve(dataset=buyer_dataset(payload.buyer_phone))

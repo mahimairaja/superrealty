@@ -55,9 +55,16 @@ async def set_result(
         return obj
 
 
-async def list_recent(limit: int = 20) -> list[Booking]:
+async def list_recent(
+    limit: int = 20, tenant_id: str | None = None
+) -> list[Booking]:
+    """Recent bookings, newest first. When tenant_id is given the result is scoped to
+    that tenant (the console always passes it); None returns across tenants (internal use).
+    """
     async with _database().session() as session:
-        result = await session.execute(
-            select(Booking).order_by(col(Booking.created_at).desc()).limit(limit)
-        )
+        stmt = select(Booking)
+        if tenant_id is not None:
+            stmt = stmt.where(Booking.tenant_id == tenant_id)
+        stmt = stmt.order_by(col(Booking.created_at).desc()).limit(limit)
+        result = await session.execute(stmt)
         return list(result.scalars().all())
