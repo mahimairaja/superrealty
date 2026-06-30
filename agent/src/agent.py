@@ -18,7 +18,7 @@ from src.agents.agent_realty import RealtyAgent
 from src.core.config import config
 from src.core.events import register_event_handlers
 from src.runtime.observers import post_call_log
-from src.utils.room import identify
+from src.utils.room import identify, parse_tenant_id
 
 logger = logging.getLogger("agent")
 
@@ -51,6 +51,14 @@ async def entrypoint(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
     await ctx.connect()
 
+    # Recover the realtor (tenant) this call belongs to from the backend-minted room name
+    # (t_{tenant}_{random}). Every memory read/write is then scoped to this realtor.
+    tenant_id = parse_tenant_id(ctx.room.name)
+    if tenant_id:
+        ctx.log_context_fields["tenant"] = tenant_id
+    else:
+        logger.warning("room %s has no tenant; memory tools will be unavailable", ctx.room.name)
+
     # Identify the caller. Web and SIP differ only here; the conversation is
     # identical. Skipped in console mode (local mic, no remote participant).
     if not CONSOLE_MODE:
@@ -71,7 +79,7 @@ async def entrypoint(ctx: JobContext) -> None:
         ),
     )
 
-    realty_agent = RealtyAgent()
+    realty_agent = RealtyAgent(tenant_id=tenant_id)
     log_usage_summary = register_event_handlers(session)
 
     async def _on_shutdown() -> None:

@@ -16,6 +16,22 @@ class Caller:
     phone: str | None = None
 
 
+def parse_tenant_id(room_name: str | None) -> str | None:
+    """Recover the tenant_id from a ``t_{tenant_id}_{random}`` room name, or None.
+
+    The backend mints the room name and encodes the realtor's tenant (their Clerk org id)
+    into it. The org id itself contains underscores, and the random suffix is uuid hex with
+    none, so the tenant is everything between the ``t_`` prefix and the LAST underscore.
+    This MUST match the backend's tenant_from_room_name codec.
+    """
+    if not room_name or not room_name.startswith("t_"):
+        return None
+    tenant_id, _, suffix = room_name[2:].rpartition("_")
+    if not tenant_id or not suffix:
+        return None
+    return tenant_id
+
+
 def parse_room_metadata(raw: str | None) -> dict:
     """Safely parse room metadata as JSON; return {} on any failure."""
     if not raw:

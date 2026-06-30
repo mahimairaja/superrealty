@@ -2,9 +2,10 @@
 
 from types import SimpleNamespace
 
+import pytest
 from livekit import rtc
 
-from src.utils.room import Caller, identify, parse_room_metadata
+from src.utils.room import Caller, identify, parse_room_metadata, parse_tenant_id
 
 
 def _participant(
@@ -46,3 +47,18 @@ def test_identify_sip_by_attribute():
 def test_identify_sip_by_kind():
     caller = identify(_participant(kind=rtc.ParticipantKind.PARTICIPANT_KIND_SIP))
     assert caller.kind == "sip"
+
+
+def test_parse_tenant_id_round_trips_org_with_underscores():
+    # The Clerk org id contains underscores; the random suffix does not, so the tenant is
+    # everything before the LAST underscore. Must match the backend codec.
+    assert parse_tenant_id("t_org_2abCDef_GhiJkl_9f8e7d6c5b4a") == "org_2abCDef_GhiJkl"
+    assert parse_tenant_id("t_org_simple_abcdef123456") == "org_simple"
+
+
+@pytest.mark.parametrize(
+    "room",
+    [None, "", "plain-room", "room-abc123", "t_", "t_onlytenant"],
+)
+def test_parse_tenant_id_rejects_non_tenant_rooms(room):
+    assert parse_tenant_id(room) is None

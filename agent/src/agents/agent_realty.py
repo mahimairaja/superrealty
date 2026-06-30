@@ -32,11 +32,17 @@ _DEFAULT_OPENER = (
 
 class RealtyAgent(Agent):
     def __init__(
-        self, realtor: str | None = None, api: BackendApiClient | None = None
+        self,
+        realtor: str | None = None,
+        api: BackendApiClient | None = None,
+        tenant_id: str | None = None,
     ) -> None:
         super().__init__(instructions=REALTOR_INSTRUCTIONS)
         self._realtor = realtor or config.AGENT_NAME
-        self._api = api or BackendApiClient()
+        # The tenant (realtor's Clerk org) this call serves, derived from the room name. The
+        # client presents it to the backend so memory reads/writes are scoped to this realtor.
+        self._tenant_id = tenant_id
+        self._api = api or BackendApiClient(tenant_id=tenant_id)
         self._max_call_task: asyncio.Task | None = None
         self._ending = False
         # One idempotency key per call, reused on a booking retry.

@@ -1,6 +1,42 @@
 import httpx
 
+import src.services.api_client as api_client_mod
 from src.services.api_client import BackendApiClient
+
+
+async def test_tenant_and_agent_secret_headers_are_sent(monkeypatch):
+    # The agent presents its tenant (from the room name) and the shared secret so the
+    # backend's tenant-scoped endpoints (recall, buyers) trust the asserted tenant.
+    monkeypatch.setattr(api_client_mod.config, "AGENT_SERVICE_SECRET", "s3cret")
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["tenant"] = request.headers.get("X-Tenant-Id")
+        seen["secret"] = request.headers.get("X-Agent-Secret")
+        return httpx.Response(200, json={"answer": "ok", "match_count": 0})
+
+    client = BackendApiClient(
+        base_url="http://test",
+        transport=httpx.MockTransport(handler),
+        tenant_id="org_abc",
+    )
+    await client.recall("Riley", "3 bed")
+    assert seen == {"tenant": "org_abc", "secret": "s3cret"}
+
+
+async def test_no_tenant_header_when_tenant_absent():
+    # With no tenant (e.g. a demo room), the X-Tenant-Id header is simply omitted.
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["tenant"] = request.headers.get("X-Tenant-Id")
+        return httpx.Response(200, json={"answer": "ok", "match_count": 0})
+
+    client = BackendApiClient(
+        base_url="http://test", transport=httpx.MockTransport(handler)
+    )
+    await client.recall("Riley", "3 bed")
+    assert seen["tenant"] is None
 
 
 async def test_recall_posts_and_returns_answer():

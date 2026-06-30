@@ -22,6 +22,11 @@ class Config(BaseSettings):
     # Backend base URL the agent's tools call (the realty memory/recall API).
     BACKEND_URL: str = "http://localhost:8000"
 
+    # Shared secret the agent presents (X-Agent-Secret) so the backend trusts the tenant the
+    # agent asserts (X-Tenant-Id, derived from the room name). Must match the backend's
+    # AGENT_SERVICE_SECRET. Without it the tenant-scoped endpoints (recall, buyers) refuse.
+    AGENT_SERVICE_SECRET: str | None = None
+
     # Optional error tracking.
     SENTRY_DSN: str | None = None
 
