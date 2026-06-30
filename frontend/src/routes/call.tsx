@@ -20,7 +20,7 @@ export default function Call() {
   return (
     <TooltipProvider>
       <AgentSessionProvider session={session}>
-        <main className="min-h-screen">
+        <main className="min-h-[calc(100svh-3.5rem)]">
           <CallShell />
         </main>
       </AgentSessionProvider>

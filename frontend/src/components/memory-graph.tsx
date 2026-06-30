@@ -5,13 +5,16 @@ import { API_BASE } from "@/lib/api";
 // here; for M0 this links out to the graph store rather than embedding it.
 export function MemoryGraph() {
   return (
-    <div className="border rounded p-4 text-sm text-muted-foreground flex flex-col gap-2">
+    <div className="flex flex-col gap-2 text-sm text-muted-foreground">
       <p>
         Realtor, Listings, Neighbourhoods, Buyers, and Showings form a living memory graph
         in Cognee. Watch it grow as calls happen.
       </p>
       <p>
-        Backend: <code>{API_BASE}</code>
+        Backend:{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+          {API_BASE}
+        </code>
       </p>
     </div>
   );
