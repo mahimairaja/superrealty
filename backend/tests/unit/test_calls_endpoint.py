@@ -67,3 +67,40 @@ async def test_close_call_without_phone_skips_improve(monkeypatch):
         resp = await c.post("/api/v1/calls/room-2/close", json={"outcome": "abandoned"})
     assert resp.status_code == 200
     assert store.improved == []
+
+
+class _Key:
+    @staticmethod
+    def get_secret_value() -> str:
+        return "k"
+
+
+async def test_close_call_fires_lead_sms_when_configured(monkeypatch):
+    async def fake_create(values: dict) -> _Row:
+        return _Row()
+
+    sent: dict = {}
+
+    async def fake_sms(**kwargs):
+        sent.update(kwargs)
+        return {"data": {"id": "m1"}}
+
+    monkeypatch.setattr(calls_mod.call_log_repository, "create", fake_create)
+    monkeypatch.setattr(calls_mod, "get_memory_store", lambda: _FakeStore())
+    monkeypatch.setattr(calls_mod.sms_service, "send_sms", fake_sms)
+    monkeypatch.setattr(calls_mod.config, "TELNYX_API_KEY", _Key(), raising=False)
+    monkeypatch.setattr(
+        calls_mod.config, "TELNYX_FROM_NUMBER", "+15195550000", raising=False
+    )
+    monkeypatch.setattr(
+        calls_mod.config, "REALTOR_SMS_TO", "+15195551111", raising=False
+    )
+
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/calls/room-3/close",
+            json={"outcome": "completed", "summary": "New lead: Dana, Sarnia 3 bed"},
+        )
+    assert resp.status_code == 200
+    assert sent["to"] == "+15195551111"
+    assert "Dana" in sent["text"]
