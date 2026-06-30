@@ -13,6 +13,7 @@ class Booking(BaseModel, table=True):
 
     __tablename__ = "bookings"
 
+    tenant_id: str | None = Field(default=None, index=True)
     idempotency_key: str = Field(index=True, unique=True, nullable=False)
     room_name: str | None = Field(default=None, index=True)
     property_code: str | None = Field(default=None)

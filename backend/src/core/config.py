@@ -202,6 +202,24 @@ class Config(BaseSettings):
     TELNYX_FROM_NUMBER: str | None = None
     REALTOR_SMS_TO: str | None = None
 
+    # ---- Clerk auth (multi-tenant SaaS) -----------------------------------
+    # The realtor console authenticates with Clerk; tenant = Clerk organization.
+    # CLERK_ISSUER is the instance URL, e.g. https://your-app.clerk.accounts.dev
+    # (its /.well-known/jwks.json verifies session tokens). The public buyer call
+    # widget stays unauthenticated.
+    CLERK_SECRET_KEY: SecretStr | None = None
+    CLERK_PUBLISHABLE_KEY: str | None = None
+    CLERK_ISSUER: str | None = None
+    CLERK_JWKS_URL_OVERRIDE: str | None = None
+
+    @property
+    def CLERK_JWKS_URL(self) -> str | None:
+        if self.CLERK_JWKS_URL_OVERRIDE:
+            return self.CLERK_JWKS_URL_OVERRIDE
+        if self.CLERK_ISSUER:
+            return self.CLERK_ISSUER.rstrip("/") + "/.well-known/jwks.json"
+        return None
+
     @field_validator("RR_CAL_EVENT_TYPE_ID", mode="before")
     @classmethod
     def _blank_int_to_none(cls, v: object) -> object:

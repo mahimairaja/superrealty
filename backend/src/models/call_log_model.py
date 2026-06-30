@@ -15,6 +15,7 @@ class CallLog(BaseModel, table=True):
 
     __tablename__ = "call_logs"
 
+    tenant_id: str | None = Field(default=None, index=True)
     room_name: str = Field(index=True, nullable=False)
     agent_name: str | None = Field(default=None)
     started_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
