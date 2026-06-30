@@ -9,6 +9,7 @@ import src.core.widget_guard as widget_guard
 class _FakeStore:
     def __init__(self) -> None:
         self.upserts: list[dict] = []
+        self.forgotten: str | None = None
 
     async def upsert_buyer(self, buyer: dict) -> dict:
         self.upserts.append(buyer)
@@ -22,6 +23,10 @@ class _FakeStore:
                 "summary": "Dana, looking in Sarnia for 3 bedrooms.",
             }
         return {"found": False, "phone": phone}
+
+    async def forget_buyer(self, phone: str) -> dict:
+        self.forgotten = phone
+        return {"forgotten": True, "phone": phone}
 
 
 @pytest.fixture(autouse=True)
@@ -71,3 +76,12 @@ async def test_get_unknown_buyer_is_not_found(monkeypatch):
     body = resp.json()
     assert body["found"] is False
     assert body["summary"] is None
+
+
+async def test_forget_buyer(monkeypatch):
+    store = _FakeStore()
+    async with _client(monkeypatch, store) as c:
+        resp = await c.delete("/api/v1/buyers/+15195550100")
+    assert resp.status_code == 200
+    assert resp.json()["forgotten"] is True
+    assert store.forgotten == "+15195550100"

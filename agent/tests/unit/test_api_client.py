@@ -60,6 +60,12 @@ async def test_lead_availability_booking_routes():
                     "synced": True,
                 },
             )
+        if request.method == "DELETE" and request.url.path.startswith(
+            "/api/v1/buyers/"
+        ):
+            return httpx.Response(200, json={"forgotten": True})
+        if request.url.path.endswith("/close"):
+            return httpx.Response(200, json={"id": 9, "room_name": "r"})
         return httpx.Response(404)
 
     client = BackendApiClient(
@@ -73,6 +79,12 @@ async def test_lead_availability_booking_routes():
         {"idempotency_key": "k", "property_code": "L1", "start": "x", "phone": "p"}
     )
     assert booking["status"] == "accepted"
+    forgot = await client.forget_buyer("+15195550100")
+    assert forgot["forgotten"] is True
+    closed = await client.close_call("room-1", {"outcome": "completed"})
+    assert closed["id"] == 9
     assert ("POST", "/api/v1/buyers") in seen
     assert ("GET", "/api/v1/availability") in seen
     assert ("POST", "/api/v1/bookings") in seen
+    assert ("DELETE", "/api/v1/buyers/+15195550100") in seen
+    assert ("POST", "/api/v1/calls/room-1/close") in seen

@@ -41,6 +41,8 @@ class RealtyAgent(Agent):
         self._ending = False
         # One idempotency key per call, reused on a booking retry.
         self._booking_key: str | None = None
+        # The buyer phone captured this call, for the call-log link on close.
+        self.last_phone: str | None = None
 
     async def on_enter(self) -> None:
         # Cap call length so a stuck or abusive session cannot run up STT/LLM/TTS cost.
@@ -100,6 +102,8 @@ class RealtyAgent(Agent):
         """Record the buyer's contact details (name, phone) and what they are looking for
         (area, budget, bedrooms). Safe to call again as details firm up.
         """
+        if phone:
+            self.last_phone = phone
         criteria: dict[str, object] = {}
         if area:
             criteria["area"] = area
@@ -143,6 +147,7 @@ class RealtyAgent(Agent):
         """Book an in-person showing for a home at a chosen time. start_utc is one of the
         startUtc values from check_availability.
         """
+        self.last_phone = phone
         if self._booking_key is None:
             self._booking_key = str(uuid.uuid4())
         try:
@@ -164,3 +169,24 @@ class RealtyAgent(Agent):
         if status in ("accepted", "pending"):
             return "I have put in the request and we will confirm it shortly."
         return "That time did not work out. Want me to check other times?"
+
+    @function_tool
+    async def forget_me(self, context: RunContext) -> str:
+        """Forget everything we remember about THIS caller, at their request, and confirm.
+
+        The phone is derived from the verified caller context (the number captured this
+        call), never accepted as an argument, so a caller can only ever forget themselves.
+        """
+        phone = self.last_phone
+        if not phone:
+            return (
+                "Could you share the phone number on your account so I can remove your "
+                "information?"
+            )
+        try:
+            await self._api.forget_buyer(phone)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("forget_me failed: %s", exc)
+            return "I was not able to do that just now."
+        self.last_phone = None
+        return "Done. I have removed your information."
