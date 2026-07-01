@@ -55,9 +55,7 @@ async def set_result(
         return obj
 
 
-async def list_recent(
-    limit: int = 20, tenant_id: str | None = None
-) -> list[Booking]:
+async def list_recent(limit: int = 20, tenant_id: str | None = None) -> list[Booking]:
     """Recent bookings, newest first. When tenant_id is given the result is scoped to
     that tenant (the console always passes it); None returns across tenants (internal use).
     """

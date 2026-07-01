@@ -57,7 +57,9 @@ async def entrypoint(ctx: JobContext) -> None:
     if tenant_id:
         ctx.log_context_fields["tenant"] = tenant_id
     else:
-        logger.warning("room %s has no tenant; memory tools will be unavailable", ctx.room.name)
+        logger.warning(
+            "room %s has no tenant; memory tools will be unavailable", ctx.room.name
+        )
 
     # Identify the caller. Web and SIP differ only here; the conversation is
     # identical. Skipped in console mode (local mic, no remote participant).

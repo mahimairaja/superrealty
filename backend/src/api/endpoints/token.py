@@ -25,6 +25,9 @@ async def create_room_token(
     # name a real tenant: otherwise a caller could spin up rooms under arbitrary
     # slugs. A LiveKit token only grants entry to its own room, so this is a
     # validity gate, not an auth boundary. Unknown slug -> 404.
-    if payload.tenant and await tenant_repository.get_by_clerk_org_id(payload.tenant) is None:
+    if (
+        payload.tenant
+        and await tenant_repository.get_by_clerk_org_id(payload.tenant) is None
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown tenant")
     return service.create_room_token(payload)

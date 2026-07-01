@@ -28,9 +28,7 @@ async def create(values: dict) -> CallLog:
         return obj
 
 
-async def list_recent(
-    limit: int = 20, tenant_id: str | None = None
-) -> list[CallLog]:
+async def list_recent(limit: int = 20, tenant_id: str | None = None) -> list[CallLog]:
     """Recent call logs, newest first. When tenant_id is given the result is scoped to
     that tenant (the console always passes it); None returns across tenants (internal use).
     """

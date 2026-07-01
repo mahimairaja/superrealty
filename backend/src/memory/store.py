@@ -329,9 +329,7 @@ class MemoryStore:
         showing.belongs_to_set = [_tenant_nodeset(tenant_id)]
         await add_data_points([showing])
         dataset = (
-            buyer_dataset(tenant_id, phone)
-            if phone
-            else listings_dataset(tenant_id)
+            buyer_dataset(tenant_id, phone) if phone else listings_dataset(tenant_id)
         )
         note = f"A showing is booked for {address or property_code} on {when_utc}"
         note += f" for the buyer at {phone}." if phone else "."

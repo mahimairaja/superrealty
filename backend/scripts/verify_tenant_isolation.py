@@ -28,14 +28,30 @@ async def main() -> None:
     await store.add_listings(
         A,
         {"name": "Alpha Realty"},
-        [{"code": f"A-{TAG}", "address": A_STREET, "beds": 3, "price": 450000,
-          "area": "Sarnia", "description": "3 bed bungalow"}],
+        [
+            {
+                "code": f"A-{TAG}",
+                "address": A_STREET,
+                "beds": 3,
+                "price": 450000,
+                "area": "Sarnia",
+                "description": "3 bed bungalow",
+            }
+        ],
     )
     await store.add_listings(
         B,
         {"name": "Beta Realty"},
-        [{"code": f"B-{TAG}", "address": B_STREET, "beds": 3, "price": 460000,
-          "area": "Sarnia", "description": "3 bed bungalow"}],
+        [
+            {
+                "code": f"B-{TAG}",
+                "address": B_STREET,
+                "beds": 3,
+                "price": 460000,
+                "area": "Sarnia",
+                "description": "3 bed bungalow",
+            }
+        ],
     )
 
     crit = {"area": "Sarnia", "minBeds": 3}
