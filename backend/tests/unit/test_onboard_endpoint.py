@@ -18,12 +18,16 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 # for it so it does not need a real JWT, and the `realtor` form/query value is display-only.
 TENANT = "org_onboard_test"
 
+# One in-memory store shared across the app override and the reset fixture, so the suite
+# exercises the real staging flow without a database (the DB-backed store runs in prod).
+_TEST_STORE = onboard_service.InMemoryStagingStore()
+
 
 @pytest.fixture(autouse=True)
-def _reset_state():
-    onboard_service.get_staging_store().clear()
+async def _reset_state():
+    await _TEST_STORE.clear()
     yield
-    onboard_service.get_staging_store().clear()
+    await _TEST_STORE.clear()
 
 
 def _client() -> AsyncClient:
@@ -31,6 +35,7 @@ def _client() -> AsyncClient:
     app.include_router(onboard_router, prefix="/api/v1")
     app.include_router(listings_router, prefix="/api/v1")
     app.dependency_overrides[get_current_tenant] = lambda: TENANT
+    app.dependency_overrides[onboard_service.get_staging_store] = lambda: _TEST_STORE
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
@@ -290,7 +295,7 @@ async def test_onboard_requires_authorization():
             files={"file": ("jsonld.html", b"<html></html>", "text/html")},
         )
     assert resp.status_code == 403
-    assert onboard_service.get_staging_store().list(TENANT) == []
+    assert await _TEST_STORE.list(TENANT) == []
 
 
 async def test_onboard_extracts_and_stages():

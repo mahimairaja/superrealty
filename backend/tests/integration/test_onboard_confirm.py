@@ -21,7 +21,9 @@ TENANT = "org_onboard_integration"
 
 
 async def test_onboard_then_confirm_inserts_into_memory():
-    onboard_service.get_staging_store().clear()
+    # Live stack: exercises the DB-backed staging store end to end (onboard persists, confirm
+    # reads it back), so this also covers staging surviving across requests.
+    await onboard_service.get_staging_store().clear()
     app = FastAPI()
     app.include_router(onboard_router, prefix="/api/v1")
     app.dependency_overrides[get_current_tenant] = lambda: TENANT

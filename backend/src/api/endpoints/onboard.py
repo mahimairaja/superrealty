@@ -11,7 +11,7 @@ from src.schemas.listing_schemas import (
     RealtorProfile,
 )
 from src.services import fetch_service, ingest_service
-from src.services.onboard_service import extract_drafts, get_staging_store
+from src.services.onboard_service import StagedStore, extract_drafts
 
 router = APIRouter(prefix="/onboard", tags=["onboard"])
 
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/onboard", tags=["onboard"])
 @router.post("", response_model=OnboardResponse, status_code=status.HTTP_201_CREATED)
 async def onboard(
     tenant_id: CurrentTenant,
+    store: StagedStore,
     realtor: str = Form(""),  # optional: the URL flow infers the name from the site
     authorized: bool = Form(False),
     file: UploadFile | None = File(None),
@@ -77,10 +78,9 @@ async def onboard(
 
     # Replace, not append: clearing first means the set the realtor reviews is exactly the set
     # that goes live, even if they re-fetch or switch between URL and file before confirming.
-    store = get_staging_store()
-    store.clear(tenant_id)
-    staged = store.stage(tenant_id, drafts)
-    store.stage_profile(tenant_id, profile)
+    await store.clear(tenant_id)
+    staged = await store.stage(tenant_id, drafts)
+    await store.stage_profile(tenant_id, profile)
     return OnboardResponse(
         realtor=(profile or {}).get("name") or realtor,
         listings=[ListingDraft(**d) for d in staged],
@@ -91,16 +91,16 @@ async def onboard(
 @router.post("/confirm", response_model=ConfirmResponse)
 async def confirm(
     tenant_id: CurrentTenant,
+    store: StagedStore,
     realtor: str = Form(""),
 ) -> ConfirmResponse:
     # Insert the reviewed staging set into the tenant's Cognee memory (the system of record).
-    store = get_staging_store()
-    drafts = store.list(tenant_id)
+    drafts = await store.list(tenant_id)
     if not drafts:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="nothing staged for this realtor"
         )
-    profile = store.get_profile(tenant_id) or {}
+    profile = await store.get_profile(tenant_id) or {}
     name = profile.get("name") or realtor
     # Persist the whole inferred persona onto the Realtor node, not just the name, so the live
     # voice agent can answer in the realtor's name, agency, and tone.
@@ -112,5 +112,5 @@ async def confirm(
         "tone": profile.get("tone"),
     }
     await get_memory_store().add_listings(tenant_id, realtor_meta, drafts)
-    store.clear(tenant_id)
+    await store.clear(tenant_id)
     return ConfirmResponse(realtor=name, inserted=len(drafts))

@@ -4,7 +4,7 @@ from src.core.clerk import CurrentTenant
 from src.core.tenant import AgentTenant
 from src.memory.store import get_memory_store
 from src.schemas.listing_schemas import ListingDraft, ListingPatch, LiveListing
-from src.services.onboard_service import get_staging_store
+from src.services.onboard_service import StagedStore
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -14,8 +14,8 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 
 
 @router.get("", response_model=list[ListingDraft])
-async def list_listings(tenant_id: CurrentTenant) -> list[dict]:
-    return get_staging_store().list(tenant_id)
+async def list_listings(tenant_id: CurrentTenant, store: StagedStore) -> list[dict]:
+    return await store.list(tenant_id)
 
 
 @router.get("/live", response_model=list[LiveListing])
@@ -38,8 +38,9 @@ async def patch_listing(
     draft_id: str,
     patch: ListingPatch,
     tenant_id: CurrentTenant,
+    store: StagedStore,
 ) -> dict:
-    updated = get_staging_store().patch(
+    updated = await store.patch(
         tenant_id, draft_id, patch.model_dump(exclude_unset=True)
     )
     if updated is None:
@@ -48,6 +49,8 @@ async def patch_listing(
 
 
 @router.delete("/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_listing(draft_id: str, tenant_id: CurrentTenant) -> None:
-    if not get_staging_store().remove(tenant_id, draft_id):
+async def remove_listing(
+    draft_id: str, tenant_id: CurrentTenant, store: StagedStore
+) -> None:
+    if not await store.remove(tenant_id, draft_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="listing not found")
