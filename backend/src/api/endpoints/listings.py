@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from src.core.clerk import CurrentTenant
+from src.core.tenant import AgentTenant
 from src.memory.store import get_memory_store
 from src.schemas.listing_schemas import ListingDraft, ListingPatch, LiveListing
 from src.services.onboard_service import get_staging_store
@@ -21,6 +22,14 @@ async def list_listings(tenant_id: CurrentTenant) -> list[dict]:
 async def list_live_listings(tenant_id: CurrentTenant) -> list[dict]:
     # The realtor's connected homes, read back from Cognee (what the assistant actually
     # recommends). This is the post-confirm view: staging clears on confirm, these persist.
+    return await get_memory_store().list_listings(tenant_id)
+
+
+@router.get("/catalog", response_model=list[LiveListing])
+async def listing_catalog(tenant_id: AgentTenant) -> list[dict]:
+    # Same connected homes as /live, but for the AGENT (agent-secret gated, not Clerk): the
+    # assistant fetches the structured catalog to push house cards to the caller's screen
+    # during a call. Identical data, different caller/auth than the console.
     return await get_memory_store().list_listings(tenant_id)
 
 

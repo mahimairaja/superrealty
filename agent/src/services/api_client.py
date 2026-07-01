@@ -60,6 +60,18 @@ class BackendApiClient:
         )
         return str(data.get("answer", ""))
 
+    async def list_listings(self) -> list[dict[str, Any]]:
+        """The realtor's structured listing catalog (address/price/beds/image_url), used to
+        push house cards to the caller's screen during a call.
+        """
+        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
+            resp = await client.get(
+                f"{self._base_url}/api/v1/listings/catalog", headers=self._headers()
+            )
+            resp.raise_for_status()
+            data: list[dict[str, Any]] = resp.json()
+        return data
+
     async def capture_lead(self, buyer: dict[str, Any]) -> dict[str, Any]:
         """Upsert a buyer keyed by phone."""
         return await self._post("/api/v1/buyers", buyer)
