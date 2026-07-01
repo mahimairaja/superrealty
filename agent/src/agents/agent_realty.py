@@ -89,9 +89,11 @@ class RealtyAgent(Agent):
 
     @function_tool
     async def search_listings(self, context: RunContext, criteria: str) -> str:
-        """Find homes matching what the buyer wants, drawn only from the realtor's own
-        connected listings. Pass the buyer's stated criteria as natural language
-        (area, budget, bedrooms, and so on).
+        """Find homes from the realtor's own connected listings, and always call this
+        before naming any home. For a specific ask, pass the buyer's stated criteria as
+        natural language (area, budget, bedrooms, and so on). When the buyer wants to
+        know what is available or to list everything, pass a broad query such as
+        "all current listings" to get the full set instead of asking for criteria.
         """
         return await self._search(criteria)
 
