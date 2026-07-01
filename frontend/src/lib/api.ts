@@ -174,6 +174,15 @@ export async function getLiveListings(): Promise<LiveListing[]> {
   return asJSON<LiveListing[]>(res, "getLiveListings");
 }
 
+// The realtor's synthesized assistant persona (how the agent introduces itself on calls).
+// All-null until they connect listings by URL and confirm.
+export async function getAssistantPersona(): Promise<RealtorProfile> {
+  const res = await fetch(`${API_BASE}/realtor/me`, {
+    headers: await authHeaders(),
+  });
+  return asJSON<RealtorProfile>(res, "getAssistantPersona");
+}
+
 export interface BuyerSummary {
   phone?: string | null;
   name?: string | null;

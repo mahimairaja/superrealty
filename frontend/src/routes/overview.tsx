@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { Building2, CalendarCheck, PhoneCall } from "lucide-react";
+import { Building2, CalendarCheck, PhoneCall, Sparkles } from "lucide-react";
 import {
+  getAssistantPersona,
   getLiveListings,
   getPipeline,
   type PipelineResponse,
+  type RealtorProfile,
 } from "@/lib/api";
 import { CallLinkCard } from "@/components/app/call-link-card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ export default function Overview() {
     bookings: [],
     calls: [],
   });
+  const [persona, setPersona] = useState<RealtorProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,11 +49,22 @@ export default function Overview() {
       getPipeline()
         .then((p) => active && setPipeline(p))
         .catch(() => {}),
+      getAssistantPersona()
+        .then((p) => active && setPersona(p))
+        .catch(() => {}),
     ]).finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
   }, []);
+
+  const personaName = persona?.name?.trim();
+  const personaAgency = persona?.agency?.trim();
+  const introWho = personaName
+    ? personaAgency
+      ? `${personaName}'s assistant at ${personaAgency}`
+      : `${personaName}'s assistant`
+    : null;
 
   const stats = [
     { icon: Building2, label: "Listings", value: listings, to: "/listings" },
@@ -98,6 +112,37 @@ export default function Overview() {
       </div>
 
       <CallLinkCard />
+
+      {introWho && (
+        <Card className="border-primary/30 bg-accent/30">
+          <CardContent className="flex items-start gap-3 py-5">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="size-5" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Your assistant
+              </div>
+              <p className="text-sm">
+                On calls, it answers as <strong>{introWho}</strong>
+                {persona?.tone ? (
+                  <>
+                    {" "}
+                    in a <span className="text-primary">{persona.tone}</span>{" "}
+                    tone
+                  </>
+                ) : null}
+                {persona?.area ? `, serving ${persona.area}` : ""}.
+              </p>
+              {persona?.tagline && (
+                <p className="text-sm italic text-muted-foreground">
+                  "{persona.tagline}"
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

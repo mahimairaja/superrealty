@@ -134,6 +134,36 @@ async def test_realtor_endpoint_is_agent_authed(monkeypatch):
     assert seen["tenant"] == "org_agent"
 
 
+async def test_realtor_me_is_console_authed(monkeypatch):
+    seen = {}
+
+    class _Store:
+        async def get_realtor(self, tenant_id):
+            seen["tenant"] = tenant_id
+            return {
+                "name": "Morgan Bell",
+                "agency": "Bluewater Homes",
+                "area": "Sarnia",
+                "tagline": "Homes with heart",
+                "tone": "warm, local",
+            }
+
+    import src.api.endpoints.realtor as realtor_mod
+    from src.api.endpoints.realtor import router as realtor_router
+
+    monkeypatch.setattr(realtor_mod, "get_memory_store", lambda: _Store())
+    app = FastAPI()
+    app.include_router(realtor_router, prefix="/api/v1")
+    app.dependency_overrides[get_current_tenant] = lambda: TENANT
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        resp = await c.get("/api/v1/realtor/me")
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Morgan Bell"
+    assert seen["tenant"] == TENANT  # scoped to the signed-in realtor
+
+
 async def test_confirm_persists_full_profile(monkeypatch):
     listing = {
         "code": "RR-1",
