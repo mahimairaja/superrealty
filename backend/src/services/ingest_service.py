@@ -28,17 +28,75 @@ def _looks_like_listing(text: str) -> bool:
     )
 
 
+# Trailing province/country tokens dropped when keying an address, so a structured record
+# ("88 Maple Ridge Drive, Sarnia, ON") and an LLM one ("88 Maple Ridge Drive, Sarnia") for the
+# same home normalize to the same key.
+_ADDR_SUFFIX = {
+    "on",
+    "ontario",
+    "bc",
+    "ab",
+    "qc",
+    "ns",
+    "nb",
+    "mb",
+    "sk",
+    "pe",
+    "nl",
+    "nt",
+    "yt",
+    "nu",
+    "canada",
+    "ca",
+    "us",
+    "usa",
+}
+
+
+def _addr_key(address: Any) -> str:
+    tokens = re.sub(r"[^a-z0-9]+", " ", str(address or "").lower()).split()
+    while tokens and tokens[-1] in _ADDR_SUFFIX:
+        tokens.pop()
+    return " ".join(tokens)
+
+
+def _merge_into(base: dict[str, Any], extra: dict[str, Any]) -> None:
+    """Fill any blank field on `base` from `extra` (keep base's non-empty values)."""
+    for key, value in extra.items():
+        if value in (None, "") or base.get(key) not in (None, ""):
+            continue
+        base[key] = value
+
+
 def _dedupe(listings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[str] = set()
+    """Collapse duplicate homes, matching on code OR normalized address.
+
+    The same home can arrive twice: structured extraction keys it by code (with a full address),
+    while an LLM read of a listings-index page has no code and a shorter address. Keying on
+    either identity, and merging so the survivor keeps the richest fields (code, image,
+    description), stops those pairs from both surviving.
+    """
     out: list[dict[str, Any]] = []
-    for listing in listings:
-        key = (
-            str(listing.get("code") or "").strip().lower()
-            or str(listing.get("address") or "").strip().lower()
+    by_code: dict[str, dict[str, Any]] = {}
+    by_addr: dict[str, dict[str, Any]] = {}
+    for item in listings:
+        code_key = str(item.get("code") or "").strip().lower()
+        addr_key = _addr_key(item.get("address"))
+        if not code_key and not addr_key:
+            continue  # no identity at all
+        existing = (by_code.get(code_key) if code_key else None) or (
+            by_addr.get(addr_key) if addr_key else None
         )
-        if key and key not in seen:
-            seen.add(key)
-            out.append(listing)
+        if existing is None:
+            existing = dict(item)
+            out.append(existing)
+        else:
+            _merge_into(existing, item)
+        # Register both identities (a later record may supply the code an earlier one lacked).
+        if code_key:
+            by_code.setdefault(code_key, existing)
+        if addr_key:
+            by_addr.setdefault(addr_key, existing)
     return out
 
 

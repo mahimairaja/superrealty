@@ -14,6 +14,59 @@ def test_dedupe_prefers_code_then_address():
     assert [x.get("code") or x.get("address") for x in out] == ["A-1", "2 St"]
 
 
+def test_dedupe_cross_matches_code_and_address_and_merges():
+    # Same home twice: a rich structured record (code + full address + image) and a poorer LLM
+    # record (no code, shorter address). They must collapse to one enriched listing.
+    listings = [
+        {
+            "code": "RR-102",
+            "address": "88 Maple Ridge Drive, Sarnia, ON",
+            "price": 459000,
+            "image_url": "http://img/102.jpg",
+            "beds": 3,
+        },
+        {
+            "code": None,
+            "address": "88 Maple Ridge Drive, Sarnia",
+            "price": 459000,
+            "image_url": None,
+            "beds": 3,
+        },
+    ]
+    out = ingest_service._dedupe(listings)
+    assert len(out) == 1
+    assert out[0]["code"] == "RR-102"
+    assert out[0]["image_url"] == "http://img/102.jpg"
+
+
+def test_dedupe_enriches_when_llm_record_comes_first():
+    # Order-independent: if the code-less LLM record is seen first, the later structured record
+    # fills in the code and image rather than surviving as a duplicate.
+    listings = [
+        {"code": None, "address": "88 Maple Ridge Drive, Sarnia", "image_url": None},
+        {
+            "code": "RR-102",
+            "address": "88 Maple Ridge Drive, Sarnia, ON",
+            "image_url": "http://img/102.jpg",
+        },
+    ]
+    out = ingest_service._dedupe(listings)
+    assert len(out) == 1
+    assert out[0]["code"] == "RR-102"
+    assert out[0]["image_url"] == "http://img/102.jpg"
+
+
+def test_dedupe_keeps_distinct_streets_and_towns():
+    listings = [
+        {"code": None, "address": "1 Main Street, Sarnia"},
+        {
+            "code": None,
+            "address": "1 Main Street, Corunna",
+        },  # same street, different town
+    ]
+    assert len(ingest_service._dedupe(listings)) == 2
+
+
 def test_looks_like_listing_gate():
     assert ingest_service._looks_like_listing("Charming home, $459,000, 3 bed 2 bath")
     assert not ingest_service._looks_like_listing(
