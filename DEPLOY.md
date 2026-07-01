@@ -21,8 +21,19 @@ pipeline stays green before the platforms are connected.
 - **Neon** (Postgres + pgvector): create a project, note host / user / password. Create a
   database named `app`. The backend creates the `cognee_db` database and the `vector`
   extension on first boot. Neon requires SSL (`DB_SSL=require`).
-- **Neo4j Aura** (free): create an instance, note the `neo4j+s://...` URI and password.
+- **Neo4j** (graph): either a self-hosted `neo4j:5-community` service (e.g. on Railway) or
+  managed **Neo4j Aura** (free). Note the bolt/`neo4j+s://` URI and password.
 - **LiveKit Cloud**: project URL + API key/secret.
+
+> **APOC is required.** Cognee calls APOC procedures on the first `POST /onboard/confirm`, so
+> the graph DB must have the APOC plugin enabled or that request returns 500 on graph writes.
+> - **Self-hosted Neo4j** (Railway `neo4j:5-community`, or local `docker-compose`): set
+>   `NEO4J_PLUGINS='["apoc"]'` and `NEO4J_dbms_security_procedures_unrestricted=apoc.*` on the
+>   Neo4j service, then restart it. `docker-compose.yml` already sets both for local dev.
+> - **Neo4j Aura**: APOC Core ships enabled, so no action is needed.
+>
+> On Railway, set the two vars on the `rr-neo4j` service, e.g.
+> `railway variables --service rr-neo4j --set 'NEO4J_PLUGINS=["apoc"]' --set 'NEO4J_dbms_security_procedures_unrestricted=apoc.*'`
 
 ## 2. Backend service (Railway)
 

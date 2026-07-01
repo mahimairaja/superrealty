@@ -68,19 +68,56 @@ def request_validation_exception_handler(request: Request, exc: RequestValidatio
     )
 
 
+def _cors_headers_for(request: Request) -> dict[str, str]:
+    """CORS headers to attach to a 500 response.
+
+    The ``Exception`` handler runs in Starlette's ServerErrorMiddleware, which sits OUTSIDE
+    CORSMiddleware, so a bare 500 would otherwise return without CORS headers and the browser
+    would report a misleading CORS error that masks the real server error. We mirror the app's
+    CORS policy here so failures surface as clean, readable JSON in the console. (4xx handlers
+    run inside CORSMiddleware and already carry these headers.)
+    """
+    origin = request.headers.get("origin")
+    allowed = config.BACKEND_CORS_ORIGINS or []
+    if not origin:
+        return {}
+    if "*" in allowed:
+        return {"Access-Control-Allow-Origin": "*"}
+    if origin in allowed:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
+
+
 def global_exception_handler(request: Request, exc: Exception):
-    # Full detail to the server log; generic message to the client unless DEBUG.
-    logger.error(f"Unexpected error occurred: {exc}", exc_info=True)
-    return create_error_response(
-        status_code=500,
-        message="An unexpected error occurred",
-        error=str(exc) if config.DEBUG else "Internal server error",
-        error_type=exc.__class__.__name__ if config.DEBUG else "InternalServerError",
-        details={
-            "path": request.url.path,
-            "method": request.method,
-        },
-    )
+    # Full detail to the server log; generic message to the client unless DEBUG. Wrapped so the
+    # handler itself can never raise (which would bypass CORS and surface as a CORS error).
+    try:
+        logger.error(f"Unexpected error occurred: {exc}", exc_info=True)
+        response: JSONResponse = create_error_response(
+            status_code=500,
+            message="An unexpected error occurred",
+            error=str(exc) if config.DEBUG else "Internal server error",
+            error_type=exc.__class__.__name__
+            if config.DEBUG
+            else "InternalServerError",
+            details={"path": request.url.path, "method": request.method},
+        )
+    except Exception:  # noqa: BLE001  (last-resort: always return a valid, CORS-decorated body)
+        response = JSONResponse(
+            status_code=500,
+            content={
+                "message": "An unexpected error occurred",
+                "error": "Internal server error",
+                "type": "InternalServerError",
+            },
+        )
+    for key, value in _cors_headers_for(request).items():
+        response.headers[key] = value
+    return response
 
 
 def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
