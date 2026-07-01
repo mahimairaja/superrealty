@@ -192,6 +192,9 @@ class MemoryStore:
     async def add_listings(
         self, tenant_id: str, realtor: dict[str, Any], listings: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
+        """Add a realtor and their listings as typed graph nodes, tagged with the tenant's
+        NodeSet so recall and matching stay scoped to this realtor.
+        """
         await ensure_cognee()
         nodeset = _tenant_nodeset(tenant_id)
         realtor_node = Realtor(name=realtor["name"], email=realtor.get("email"))
@@ -226,6 +229,9 @@ class MemoryStore:
     async def recall(
         self, tenant_id: str, criteria: dict[str, Any] | str, top_k: int = 5
     ) -> list[Any]:
+        """Recall listings matching a buyer's criteria (or a raw query), scoped to the
+        tenant's NodeSet so one realtor never sees another's listings.
+        """
         await ensure_cognee()
         query = criteria if isinstance(criteria, str) else _criteria_to_text(criteria)
         results: list[Any] = await cognee.search(
@@ -266,6 +272,9 @@ class MemoryStore:
     async def upsert_buyer(
         self, tenant_id: str, buyer: dict[str, Any]
     ) -> dict[str, Any]:
+        """Remember (or update) a buyer: a typed Buyer node plus a per-buyer, per-tenant
+        dataset so forget removes exactly them and a return call can recall them.
+        """
         await ensure_cognee()
         nodeset = _tenant_nodeset(tenant_id)
         node = Buyer(
@@ -278,14 +287,17 @@ class MemoryStore:
         await add_data_points([node])
         # Keep a per-buyer, per-tenant dataset (cognified so it is searchable) so forget_buyer
         # removes exactly this buyer and get_buyer can recall them on a return call. node_set
-        # tags the cognified text too, so a shared phone never crosses tenants.
-        dataset = buyer_dataset(tenant_id, buyer["phone"])
-        await cognee.add(
-            _buyer_to_text(buyer),
-            dataset_name=dataset,
-            node_set=[tenant_tag(tenant_id)],
-        )
-        await cognee.cognify(datasets=[dataset])
+        # tags the cognified text too, so a shared phone never crosses tenants. Skip this when
+        # the phone has no digits, so phoneless buyers never collapse into one shared
+        # tenant_{tid}_buyer_ dataset (forget would otherwise wipe them all).
+        if re.sub(r"\D", "", buyer["phone"] or ""):
+            dataset = buyer_dataset(tenant_id, buyer["phone"])
+            await cognee.add(
+                _buyer_to_text(buyer),
+                dataset_name=dataset,
+                node_set=[tenant_tag(tenant_id)],
+            )
+            await cognee.cognify(datasets=[dataset])
         return buyer
 
     async def get_buyer(self, tenant_id: str, phone: str) -> dict[str, Any]:
@@ -346,6 +358,7 @@ class MemoryStore:
         await cognee.improve(dataset=dataset)
 
     async def forget_buyer(self, tenant_id: str, phone: str) -> dict[str, Any]:
+        """Forget a buyer by removing their per-tenant Cognee dataset exactly."""
         await ensure_cognee()
         result: dict[str, Any] = await cognee.forget(
             dataset=buyer_dataset(tenant_id, phone)

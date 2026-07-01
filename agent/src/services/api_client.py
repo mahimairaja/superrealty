@@ -24,8 +24,8 @@ class BackendApiClient:
         self._base_url = (base_url or config.BACKEND_URL).rstrip("/")
         self._transport = transport
         # The tenant this call belongs to (derived from the room name) and the shared agent
-        # secret. Sent on every backend call: the tenant-scoped endpoints (recall, buyers)
-        # require them, the widget-guarded ones (availability, bookings, close) ignore them.
+        # secret. Sent on every backend call: the tenant-scoped endpoints (recall, buyers,
+        # bookings) require them, the widget-guarded ones (availability, close) ignore them.
         self._tenant_id = tenant_id
         self._agent_secret = config.AGENT_SERVICE_SECRET
 

@@ -16,6 +16,11 @@ class BuyerUpsertResponse(BaseModel):
     name: str | None = None
 
 
+class BuyerForgetResponse(BaseModel):
+    forgotten: bool
+    phone: str
+
+
 class BuyerRecall(BaseModel):
     found: bool
     phone: str

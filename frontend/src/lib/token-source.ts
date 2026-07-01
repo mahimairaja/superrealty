@@ -22,19 +22,39 @@ export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "realty";
  */
 export function tokenSourceForTenant(tenant: string) {
   return TokenSource.custom(async (options): Promise<TokenSourceResponseObject> => {
+    // Forward every option the backend RoomTokenRequest supports. roomName is intentionally
+    // omitted: the tenant flow names the room server-side (t_{tenant}_{random}), so a client
+    // room_name is ignored. agentMetadata is the agent dispatch's `metadata` proto field.
     const body: Record<string, unknown> = { tenant };
-    if (options.agentName) {
-      body.room_config = { agents: [{ agent_name: options.agentName }] };
+    if (options.agentName || options.agentMetadata) {
+      const agent: Record<string, unknown> = {};
+      if (options.agentName) agent.agent_name = options.agentName;
+      if (options.agentMetadata) agent.metadata = options.agentMetadata;
+      body.room_config = { agents: [agent] };
     }
     if (options.participantName) body.participant_name = options.participantName;
     if (options.participantIdentity) {
       body.participant_identity = options.participantIdentity;
     }
-    const res = await fetch(TOKEN_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    if (options.participantMetadata) {
+      body.participant_metadata = options.participantMetadata;
+    }
+    // Guard against a hung backend: without a timeout, LiveKit session start() could stall
+    // indefinitely waiting on this token.
+    let res: Response;
+    try {
+      res = await fetch(TOKEN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error("token request timed out after 10s", { cause: err });
+      }
+      throw err;
+    }
     if (!res.ok) {
       throw new Error(`token request failed: ${res.status}`);
     }

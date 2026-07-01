@@ -3,6 +3,7 @@ import { tokenSourceForTenant } from "./token-source";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("tokenSourceForTenant", () => {

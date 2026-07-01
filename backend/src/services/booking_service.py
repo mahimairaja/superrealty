@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any
 
 from src.core.config import config
-from src.core.tenant import tenant_from_room_name
 from src.memory.store import get_memory_store
 from src.models.booking_model import Booking
 from src.repository import booking_repository
@@ -38,9 +37,8 @@ def _to_dict(row: Booking) -> dict[str, Any]:
     }
 
 
-async def book_showing(payload: dict[str, Any]) -> dict[str, Any]:
+async def book_showing(payload: dict[str, Any], tenant_id: str) -> dict[str, Any]:
     key = payload["idempotency_key"]
-    tenant_id = tenant_from_room_name(payload.get("room_name"))
 
     existing = await booking_repository.get_by_idempotency_key(key)
     if existing is not None:

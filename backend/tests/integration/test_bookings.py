@@ -11,9 +11,12 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from src.api.endpoints.bookings import router as bookings_router
+from src.core.tenant import get_agent_tenant_id
 from src.services import booking_service
 
 pytestmark = pytest.mark.integration
+
+TENANT = "org_bookings_integration"
 
 
 async def test_booking_is_idempotent_with_cal_stubbed(monkeypatch):
@@ -32,6 +35,7 @@ async def test_booking_is_idempotent_with_cal_stubbed(monkeypatch):
 
     app = FastAPI()
     app.include_router(bookings_router, prefix="/api/v1")
+    app.dependency_overrides[get_agent_tenant_id] = lambda: TENANT
     key = "idem-" + uuid.uuid4().hex[:8]
     body = {
         "idempotency_key": key,
