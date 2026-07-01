@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import src.api.endpoints.buyers as buyers_mod
+from src.core.clerk import get_current_tenant
 from src.core.tenant import get_agent_tenant_id
 
 TENANT = "org_buyers_test"
@@ -82,3 +83,33 @@ async def test_forget_buyer(monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["forgotten"] is True
     assert store.forgotten == (TENANT, "+15195550100")
+
+
+async def test_list_buyers_is_console_scoped(monkeypatch):
+    seen = {}
+
+    class _Store:
+        async def list_buyers(self, tenant_id):
+            seen["tenant"] = tenant_id
+            return [
+                {
+                    "phone": "+15195550100",
+                    "name": "Dana",
+                    "email": None,
+                    "criteria": {"area": "Sarnia", "minBeds": 3},
+                }
+            ]
+
+    monkeypatch.setattr(buyers_mod, "get_memory_store", lambda: _Store())
+    app = FastAPI()
+    app.include_router(buyers_mod.router, prefix="/api/v1")
+    app.dependency_overrides[get_current_tenant] = lambda: "org_console"
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
+        resp = await c.get("/api/v1/buyers")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0]["name"] == "Dana"
+    assert body[0]["criteria"]["area"] == "Sarnia"
+    assert seen["tenant"] == "org_console"

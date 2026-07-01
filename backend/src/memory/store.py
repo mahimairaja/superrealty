@@ -9,6 +9,7 @@ call, and forget a buyer (its own dataset, removed exactly).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
@@ -17,6 +18,7 @@ from uuid import NAMESPACE_OID, uuid5
 import asyncpg
 import cognee
 from cognee import SearchType
+from cognee.infrastructure.databases.graph import get_graph_engine
 from cognee.modules.engine.models import NodeSet
 from cognee.modules.engine.operations.setup import setup as cognee_setup
 from cognee.tasks.storage import add_data_points
@@ -180,6 +182,31 @@ def _buyer_to_text(buyer: dict[str, Any]) -> str:
     return f"{name} (phone {buyer.get('phone')}) is a buyer. Criteria: {buyer.get('criteria') or {}}."
 
 
+def _as_int(value: Any) -> int | None:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_json(value: Any) -> Any:
+    if value in (None, ""):
+        return None
+    if isinstance(value, dict | list):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class MemoryStore:
     """The realty memory: listings and buyers, backed by Cognee.
 
@@ -242,6 +269,70 @@ class MemoryStore:
             top_k=top_k,
         )
         return results
+
+    async def _nodeset_nodes(
+        self, tenant_id: str, node_type: str
+    ) -> list[dict[str, Any]]:
+        """Return the property dicts of every node of ``node_type`` in the tenant's NodeSet.
+
+        Unlike recall (an LLM completion), this is a direct graph read for enumerating a
+        realtor's own connected data (their listings, their buyers) in the console.
+        """
+        await ensure_cognee()
+        graph = await get_graph_engine()
+        nodes, _edges = await graph.get_nodeset_subgraph(
+            node_type=NodeSet, node_name=[tenant_tag(tenant_id)]
+        )
+        return [props for _id, props in nodes if props.get("type") == node_type]
+
+    async def list_listings(self, tenant_id: str) -> list[dict[str, Any]]:
+        """Every connected listing for the realtor, newest first. Values come back from the
+        graph as strings, so numbers are coerced; deduped by code/address.
+        """
+        seen: set[str] = set()
+        out: list[dict[str, Any]] = []
+        rows = await self._nodeset_nodes(tenant_id, "Listing")
+        rows.sort(key=lambda p: str(p.get("created_at") or ""), reverse=True)
+        for props in rows:
+            key = str(props.get("code") or props.get("address") or props.get("id"))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                {
+                    "code": props.get("code"),
+                    "address": props.get("address"),
+                    "price": _as_float(props.get("price")),
+                    "beds": _as_int(props.get("beds")),
+                    "baths": _as_float(props.get("baths")),
+                    "sqft": _as_int(props.get("sqft")),
+                    "description": props.get("description"),
+                    "image_url": props.get("image_url"),
+                }
+            )
+        return out
+
+    async def list_buyers(self, tenant_id: str) -> list[dict[str, Any]]:
+        """Every remembered buyer for the realtor, newest first, deduped by phone."""
+        seen: set[str] = set()
+        out: list[dict[str, Any]] = []
+        rows = await self._nodeset_nodes(tenant_id, "Buyer")
+        rows.sort(key=lambda p: str(p.get("created_at") or ""), reverse=True)
+        for props in rows:
+            phone = props.get("phone")
+            key = str(phone or props.get("id"))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                {
+                    "phone": phone,
+                    "name": props.get("name"),
+                    "email": props.get("email"),
+                    "criteria": _as_json(props.get("criteria")),
+                }
+            )
+        return out
 
     async def match_buyers(self, tenant_id: str, listing: dict[str, Any]) -> str:
         """Find buyers whose stated criteria match a (newly added) listing, with which of

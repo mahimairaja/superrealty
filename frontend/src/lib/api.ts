@@ -127,3 +127,36 @@ export async function getPipeline(): Promise<PipelineResponse> {
   });
   return asJSON<PipelineResponse>(res, "getPipeline");
 }
+
+export interface LiveListing {
+  code?: string | null;
+  address?: string | null;
+  price?: number | null;
+  beds?: number | null;
+  baths?: number | null;
+  sqft?: number | null;
+  description?: string | null;
+  image_url?: string | null;
+}
+
+// The realtor's connected homes read back from Cognee (what the assistant recommends).
+export async function getLiveListings(): Promise<LiveListing[]> {
+  const res = await fetch(`${API_BASE}/listings/live`, {
+    headers: await authHeaders(),
+  });
+  return asJSON<LiveListing[]>(res, "getLiveListings");
+}
+
+export interface BuyerSummary {
+  phone?: string | null;
+  name?: string | null;
+  email?: string | null;
+  criteria?: Record<string, unknown> | null;
+}
+
+export async function getBuyers(): Promise<BuyerSummary[]> {
+  const res = await fetch(`${API_BASE}/buyers`, {
+    headers: await authHeaders(),
+  });
+  return asJSON<BuyerSummary[]>(res, "getBuyers");
+}

@@ -4,6 +4,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+import src.api.endpoints.listings as listings_mod
 import src.services.onboard_service as onboard_service
 from src.api.endpoints.listings import router as listings_router
 from src.api.endpoints.onboard import router as onboard_router
@@ -29,6 +30,37 @@ def _client() -> AsyncClient:
     app.include_router(listings_router, prefix="/api/v1")
     app.dependency_overrides[get_current_tenant] = lambda: TENANT
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
+async def test_live_listings_returns_connected_homes(monkeypatch):
+    seen = {}
+
+    class _Store:
+        async def list_listings(self, tenant_id):
+            seen["tenant"] = tenant_id
+            return [
+                {
+                    "code": "RR-101",
+                    "address": "14 Zephyrwood Crescent, Sarnia",
+                    "price": 389000.0,
+                    "beds": 2,
+                    "baths": 1.0,
+                    "sqft": 980,
+                    "description": "Bright starter condo",
+                    "image_url": None,
+                }
+            ]
+
+    monkeypatch.setattr(listings_mod, "get_memory_store", lambda: _Store())
+    async with _client() as c:
+        resp = await c.get("/api/v1/listings/live")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0]["code"] == "RR-101"
+    assert body[0]["beds"] == 2
+    assert body[0]["price"] == 389000.0
+    # Scoped to the signed-in realtor's tenant.
+    assert seen["tenant"] == TENANT
 
 
 async def test_onboard_requires_authorization():

@@ -1,22 +1,11 @@
-import { NavLink, Outlet } from "react-router-dom";
-import {
-  OrganizationSwitcher,
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  UserButton,
-} from "@clerk/clerk-react";
+import { Link, NavLink, Outlet } from "react-router-dom";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
-function navClass({ isActive }: { isActive: boolean }) {
-  return cn(
-    "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-    isActive && "bg-accent text-accent-foreground",
-  );
-}
-
+// Slim public chrome for the marketing landing and the buyer call page. The realtor console
+// has its own left-sidebar layout (DashboardShell); a signed-in realtor gets a shortcut in.
 export function AppShell() {
   return (
     <div className="min-h-svh bg-background">
@@ -28,26 +17,13 @@ export function AppShell() {
               Realty<span className="text-primary">Recall</span>
             </span>
           </NavLink>
-          <nav className="hidden items-center gap-1 sm:flex">
-            <NavLink to="/call" className={navClass}>
-              Assistant
-            </NavLink>
-            <SignedIn>
-              <NavLink to="/onboard" className={navClass}>
-                Listings
-              </NavLink>
-              <NavLink to="/pipeline" className={navClass}>
-                Pipeline
-              </NavLink>
-            </SignedIn>
-          </nav>
           <div className="ml-auto flex items-center gap-2">
             <SignedIn>
-              <OrganizationSwitcher
-                hidePersonal
-                afterSelectOrganizationUrl="/pipeline"
-                afterCreateOrganizationUrl="/pipeline"
-              />
+              <Button asChild size="sm" variant="outline">
+                <Link to="/overview">
+                  Dashboard <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
               <UserButton />
             </SignedIn>
             <SignedOut>

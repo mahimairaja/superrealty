@@ -41,19 +41,23 @@ export default function Pipeline() {
 
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    // Self-scheduling poll: the next request is only armed after the current one settles, so
+    // slow responses never pile up against the (graph-backed) pipeline endpoint.
     async function tick() {
       try {
         const d = await getPipeline();
         if (active) setData(d);
       } catch {
         // ignore transient errors while polling
+      } finally {
+        if (active) timer = setTimeout(() => void tick(), 4000);
       }
     }
     void tick();
-    const id = setInterval(() => void tick(), 1000);
     return () => {
       active = false;
-      clearInterval(id);
+      clearTimeout(timer);
     };
   }, []);
 
@@ -71,13 +75,10 @@ export default function Pipeline() {
   ];
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Pipeline</h1>
-        <p className="text-sm text-muted-foreground">
-          Bookings and calls, hydrated live from memory.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <p className="text-sm text-muted-foreground">
+        Bookings and calls, hydrated live from memory.
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map((s) => (
@@ -177,6 +178,6 @@ export default function Pipeline() {
           <MemoryGraph />
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }

@@ -16,7 +16,7 @@ const FEATURES = [
     icon: Upload,
     title: "Connect your listings",
     body: "Paste a listings page or upload a file. Your homes are read into a memory graph in under a minute.",
-    to: "/onboard",
+    to: "/listings",
     cta: "Connect listings",
   },
   {
@@ -58,7 +58,7 @@ export default function Hub() {
             </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link to="/onboard">Connect listings</Link>
+            <Link to="/listings">Connect listings</Link>
           </Button>
         </div>
       </section>
