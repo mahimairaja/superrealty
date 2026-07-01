@@ -36,3 +36,16 @@ class ListingPatch(BaseModel):
 class ConfirmResponse(BaseModel):
     realtor: str
     inserted: int
+
+
+class LiveListing(BaseModel):
+    """A connected listing read back from Cognee for the realtor's dashboard (post-confirm)."""
+
+    code: str | None = None
+    address: str | None = None
+    price: float | None = None
+    beds: int | None = None
+    baths: float | None = None
+    sqft: int | None = None
+    description: str | None = None
+    image_url: str | None = None

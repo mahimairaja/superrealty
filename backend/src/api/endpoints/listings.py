@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
 from src.core.clerk import CurrentTenant
-from src.schemas.listing_schemas import ListingDraft, ListingPatch
+from src.memory.store import get_memory_store
+from src.schemas.listing_schemas import ListingDraft, ListingPatch, LiveListing
 from src.services.onboard_service import get_staging_store
 
 router = APIRouter(prefix="/listings", tags=["listings"])
@@ -14,6 +15,13 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 @router.get("", response_model=list[ListingDraft])
 async def list_listings(tenant_id: CurrentTenant) -> list[dict]:
     return get_staging_store().list(tenant_id)
+
+
+@router.get("/live", response_model=list[LiveListing])
+async def list_live_listings(tenant_id: CurrentTenant) -> list[dict]:
+    # The realtor's connected homes, read back from Cognee (what the assistant actually
+    # recommends). This is the post-confirm view: staging clears on confirm, these persist.
+    return await get_memory_store().list_listings(tenant_id)
 
 
 @router.patch("/{draft_id}", response_model=ListingDraft)

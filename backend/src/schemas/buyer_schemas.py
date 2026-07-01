@@ -25,3 +25,12 @@ class BuyerRecall(BaseModel):
     found: bool
     phone: str
     summary: str | None = None
+
+
+class BuyerSummary(BaseModel):
+    """A remembered buyer listed on the realtor's dashboard."""
+
+    phone: str | None = None
+    name: str | None = None
+    email: str | None = None
+    criteria: dict[str, Any] | None = None

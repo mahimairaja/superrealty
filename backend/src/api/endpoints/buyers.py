@@ -1,15 +1,24 @@
 from fastapi import APIRouter, status
 
+from src.core.clerk import CurrentTenant
 from src.core.tenant import AgentTenant
 from src.memory.store import get_memory_store
 from src.schemas.buyer_schemas import (
     BuyerForgetResponse,
     BuyerRecall,
+    BuyerSummary,
     BuyerUpsert,
     BuyerUpsertResponse,
 )
 
 router = APIRouter(prefix="/buyers", tags=["buyers"])
+
+
+# The realtor's dashboard list of remembered buyers. Console-authed (Clerk org), unlike the
+# per-buyer agent routes below which the assistant calls mid-call behind the agent secret.
+@router.get("", response_model=list[BuyerSummary])
+async def list_buyers(tenant_id: CurrentTenant) -> list[dict]:
+    return await get_memory_store().list_buyers(tenant_id)
 
 
 @router.post(
