@@ -29,9 +29,18 @@ export interface ListingDraft {
   area?: string | null;
 }
 
+export interface RealtorProfile {
+  name?: string | null;
+  agency?: string | null;
+  area?: string | null;
+  tagline?: string | null;
+  tone?: string | null;
+}
+
 export interface OnboardResponse {
   realtor: string;
   listings: ListingDraft[];
+  profile?: RealtorProfile | null;
 }
 
 export interface PipelineBooking {
@@ -76,6 +85,24 @@ export async function onboard(realtor: string, file: File): Promise<OnboardRespo
     headers: await authHeaders(),
   });
   return asJSON<OnboardResponse>(res, "onboard");
+}
+
+// Seed onboarding from a URL: the backend crawls the realtor's own site, extracts every
+// listing, and infers a profile. Can take a while, so callers should show a loading state.
+export async function onboardFromUrl(
+  realtor: string,
+  url: string,
+): Promise<OnboardResponse> {
+  const form = new FormData();
+  form.set("realtor", realtor);
+  form.set("authorized", "true");
+  form.set("url", url);
+  const res = await fetch(`${API_BASE}/onboard`, {
+    method: "POST",
+    body: form,
+    headers: await authHeaders(),
+  });
+  return asJSON<OnboardResponse>(res, "onboardFromUrl");
 }
 
 export async function listListings(realtor: string): Promise<ListingDraft[]> {

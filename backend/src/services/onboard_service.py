@@ -17,6 +17,9 @@ from src.services import extraction_service
 class StagingStore:
     def __init__(self) -> None:
         self._by_realtor: dict[str, dict[str, dict[str, Any]]] = {}
+        # Inferred realtor profile per tenant (from a URL onboard), shown on review and used
+        # to name the Realtor node on confirm.
+        self._profiles: dict[str, dict[str, Any]] = {}
 
     def stage(
         self, realtor: str, listings: list[dict[str, Any]]
@@ -45,11 +48,20 @@ class StagingStore:
     def remove(self, realtor: str, draft_id: str) -> bool:
         return self._by_realtor.get(realtor, {}).pop(draft_id, None) is not None
 
+    def stage_profile(self, realtor: str, profile: dict[str, Any] | None) -> None:
+        if profile:
+            self._profiles[realtor] = profile
+
+    def get_profile(self, realtor: str) -> dict[str, Any] | None:
+        return self._profiles.get(realtor)
+
     def clear(self, realtor: str | None = None) -> None:
         if realtor is None:
             self._by_realtor.clear()
+            self._profiles.clear()
         else:
             self._by_realtor.pop(realtor, None)
+            self._profiles.pop(realtor, None)
 
 
 _staging: StagingStore | None = None

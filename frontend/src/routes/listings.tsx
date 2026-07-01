@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { useOrganization } from "@clerk/clerk-react";
-import { Building2, Trash2, UploadCloud } from "lucide-react";
+import { Building2, Link2, Loader2, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import {
   confirmOnboard,
   deleteListing,
   getLiveListings,
   listListings,
   onboard,
+  onboardFromUrl,
   patchListing,
   type ListingDraft,
   type LiveListing,
+  type RealtorProfile,
 } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 function priceLabel(price?: number | null): string {
   return price != null ? `$${price.toLocaleString()}` : "Price on request";
@@ -36,8 +39,12 @@ export default function Listings() {
   const [error, setError] = useState(false);
   const [staged, setStaged] = useState<ListingDraft[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [status, setStatus] = useState("");
+  const [crawling, setCrawling] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [profile, setProfile] = useState<RealtorProfile | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -64,10 +71,16 @@ export default function Listings() {
   }
 
   async function handleImport() {
-    if (!file || !authorized) {
-      setStatus("Choose a file and confirm these are your listings.");
+    if (!file) {
+      setStatus("Choose a CSV or PDF file first.");
       return;
     }
+    if (!authorized) {
+      setStatus("Please confirm these are your listings.");
+      return;
+    }
+    setImporting(true);
+    setProfile(null);
     setStatus("Reading your listings...");
     try {
       const res = await onboard(realtor, file);
@@ -77,6 +90,38 @@ export default function Listings() {
       );
     } catch {
       setStatus("No listings could be read. Try a CSV or PDF file instead.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleImportUrl() {
+    if (!url.trim()) {
+      setStatus("Paste your site URL first.");
+      return;
+    }
+    if (!authorized) {
+      setStatus("Please confirm these are your listings.");
+      return;
+    }
+    // Accept a bare domain: the backend requires a scheme, so default to https.
+    const raw = url.trim();
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    setCrawling(true);
+    setStatus("Reading your site — this can take up to a minute...");
+    try {
+      const res = await onboardFromUrl(realtor, normalized);
+      setStaged(res.listings);
+      setProfile(res.profile ?? null);
+      setStatus(
+        res.listings.length
+          ? `Found ${res.listings.length} listing(s) on your site. Review, then go live.`
+          : "Couldn't find listings on that page. Try a specific listings page, or upload a file.",
+      );
+    } catch {
+      setStatus("Couldn't read that URL. Try another page, or upload a file.");
+    } finally {
+      setCrawling(false);
     }
   }
 
@@ -102,6 +147,7 @@ export default function Listings() {
     try {
       const res = await confirmOnboard(realtor);
       setStaged([]);
+      setProfile(null);
       setStatus(`${res.inserted} listing(s) are now live to your assistant.`);
       await refreshLive();
     } catch {
@@ -194,12 +240,39 @@ export default function Listings() {
           <CardTitle className="text-base">Connect listings</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <input
-            type="file"
-            accept=".csv,.pdf,.html,text/html"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="block w-full cursor-pointer rounded-md border border-input bg-background p-2 text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-accent hover:file:text-accent-foreground"
-          />
+          {/* Primary path: paste a site/listings URL and we crawl it. */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">
+              Paste your website or a listings page
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://your-site.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={crawling || importing}
+              />
+              <Button
+                className="shrink-0"
+                onClick={() => void handleImportUrl()}
+                disabled={crawling || importing}
+              >
+                {crawling ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Link2 />
+                )}
+                {crawling ? "Reading..." : "Fetch"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              We read your own site and pull in every listing. You review it all
+              before anything goes live.
+            </p>
+          </div>
+
+          {/* Consent gates BOTH the URL fetch and the file upload, so it sits above both. */}
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -209,12 +282,55 @@ export default function Listings() {
             />
             These are my listings and I am authorized to use them.
           </label>
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            or upload a file
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <input
+            type="file"
+            accept=".csv,.pdf,.html,text/html"
+            disabled={importing || crawling}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="block w-full cursor-pointer rounded-md border border-input bg-background p-2 text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-accent hover:file:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          />
           <div className="flex items-center gap-3">
-            <Button onClick={() => void handleImport()}>
-              <UploadCloud /> Import
+            <Button
+              onClick={() => void handleImport()}
+              disabled={importing || crawling}
+            >
+              {importing ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <UploadCloud />
+              )}
+              {importing ? "Reading..." : "Import"}
             </Button>
             {status && <p className="text-sm text-muted-foreground">{status}</p>}
           </div>
+
+          {profile &&
+            (profile.name || profile.agency || profile.area || profile.tagline) && (
+              <div className="rounded-lg border border-primary/30 bg-accent/40 p-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Sparkles className="size-4 text-primary" /> From your site
+                </div>
+                <div className="mt-1 text-sm">
+                  {[profile.name, profile.agency].filter(Boolean).join(" · ")}
+                  {profile.area ? ` — ${profile.area}` : ""}
+                </div>
+                {profile.tagline && (
+                  <p className="text-sm text-muted-foreground">"{profile.tagline}"</p>
+                )}
+                {profile.tone && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Tone: {profile.tone}
+                  </p>
+                )}
+              </div>
+            )}
 
           {staged.length > 0 && (
             <div className="flex flex-col gap-2 border-t border-border pt-4">

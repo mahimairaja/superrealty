@@ -16,9 +16,22 @@ class ListingDraft(BaseModel):
     area: str | None = None
 
 
+class RealtorProfile(BaseModel):
+    """What we inferred about the realtor from their site (for the assistant's persona).
+    Every field is optional; the realtor confirms before anything goes live.
+    """
+
+    name: str | None = None
+    agency: str | None = None
+    area: str | None = None
+    tagline: str | None = None
+    tone: str | None = None
+
+
 class OnboardResponse(BaseModel):
     realtor: str
     listings: list[ListingDraft]
+    profile: RealtorProfile | None = None
 
 
 class ListingPatch(BaseModel):

@@ -50,10 +50,31 @@ def _to_int(value: Any) -> int | None:
     return int(f) if f is not None else None
 
 
+def _coerce_address(value: Any) -> str | None:
+    """Flatten whatever a source hands us for the address into a clean string (or None).
+
+    schema.org JSON-LD can emit an address as a list, and our name fallback can be numeric;
+    a non-string here would later fail ListingDraft validation and 500 the request, so we
+    normalize at this shared choke point and let a blank address drop the record instead.
+    """
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, list):
+        joined = ", ".join(
+            str(p).strip()
+            for p in value
+            if isinstance(p, str | int | float) and str(p).strip()
+        )
+        return joined or None
+    if isinstance(value, int | float):
+        return str(value)
+    return None
+
+
 def _norm(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "code": record.get("code"),
-        "address": record.get("address"),
+        "address": _coerce_address(record.get("address")),
         "price": _to_float(record.get("price")),
         "beds": _to_int(record.get("beds")),
         "baths": _to_float(record.get("baths")),
@@ -151,7 +172,14 @@ def _from_opengraph(tree: HTMLParser) -> list[dict[str, Any]]:
         "price": meta.get("product:price:amount") or meta.get("og:price:amount"),
         "area": meta.get("og:locality") or meta.get("og:region"),
     }
-    if not (rec["address"] or rec["description"]):
+    # OG tags are emitted site-wide by most site builders, so an og:title alone is not a
+    # listing: it turns Home/About/Contact into junk drafts AND short-circuits the richer
+    # DOM/LLM path. Only emit when there is a real property signal (a price, or og:type).
+    is_listing = bool(rec["price"]) or (meta.get("og:type") or "").lower() in {
+        "product",
+        "place",
+    }
+    if not is_listing or not (rec["address"] or rec["description"]):
         return []
     return [_norm(rec)]
 
@@ -196,6 +224,11 @@ def _from_dom(tree: HTMLParser) -> list[dict[str, Any]]:
 def _page_text(tree: HTMLParser) -> str:
     body = tree.body
     return body.text(separator=" ", strip=True) if body else ""
+
+
+def page_text(html: str) -> str:
+    """Visible body text of a page, for the LLM fallback and realtor-profile synthesis."""
+    return _page_text(HTMLParser(html))
 
 
 def _from_llm(text: str, llm: LLMExtractor) -> list[dict[str, Any]]:

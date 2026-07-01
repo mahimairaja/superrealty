@@ -34,6 +34,33 @@ def test_opengraph_extraction():
     assert home["price"] == 525000.0
 
 
+def test_opengraph_ignores_non_listing_pages():
+    # A generic page (Home/About) carries og:title + og:description site-wide but no property
+    # signal, so it must NOT be mistaken for a listing.
+    html = (
+        "<html><head>"
+        '<meta property="og:title" content="Jane Doe Realty | Homes in Austin" />'
+        '<meta property="og:description" content="Your trusted local agent." />'
+        "</head><body>About us</body></html>"
+    )
+    assert extract_from_html(html) == []
+
+
+def test_jsonld_list_address_coerced_not_crashing():
+    # schema.org can emit an address as an array; it must flatten to a clean string, not stay a
+    # list (which would later fail ListingDraft validation and 500 the request).
+    html = (
+        '<html><script type="application/ld+json">'
+        '{"@type":"SingleFamilyResidence",'
+        '"address":["12 Elm St","Sarnia","ON"],'
+        '"offers":{"price":410000}}'
+        "</script></html>"
+    )
+    listings = extract_from_html(html)
+    assert len(listings) == 1
+    assert listings[0]["address"] == "12 Elm St, Sarnia, ON"
+
+
 def test_dom_heuristics_extraction():
     listings = extract_from_html(_read("plain.html"))
     assert len(listings) == 1

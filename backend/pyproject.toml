@@ -17,6 +17,7 @@ dependencies = [
   "gunicorn>=23.0.0",
   "livekit-api>=1.1.0",
   "loguru>=0.7.3",
+  "openai>=2.0",
   "pydantic-settings>=2.14.1",
   "pydantic[email]>=2.13.4",
   "pyjwt>=2.10.0",
@@ -46,7 +47,10 @@ requires = ["uv_build>=0.8.15,<0.9.0"]
 build-backend = "uv_build"
 
 [tool.mypy]
-python_version = "3.11"
+# Check under 3.12 grammar so mypy can parse openai's numpy-referencing stubs (recent numpy
+# stubs use PEP 695 `type` syntax). The app runs on 3.11 (Dockerfile) and uses no 3.12-only
+# syntax; ruff (target py311) and the 3.11 test runtime are the guards for that.
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

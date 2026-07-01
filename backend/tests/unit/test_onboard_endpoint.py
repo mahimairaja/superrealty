@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import src.api.endpoints.listings as listings_mod
+import src.api.endpoints.onboard as onboard_mod
 import src.services.onboard_service as onboard_service
 from src.api.endpoints.listings import router as listings_router
 from src.api.endpoints.onboard import router as onboard_router
@@ -94,6 +95,115 @@ async def test_listing_catalog_is_agent_authed(monkeypatch):
     assert resp.status_code == 200
     assert resp.json()[0]["code"] == "RR-102"
     assert seen["tenant"] == "org_agent"
+
+
+async def test_onboard_from_url_stages_listings_and_profile(monkeypatch):
+    listing = {
+        "code": "RR-1",
+        "address": "88 Maple Ridge Drive, Sarnia",
+        "price": 459000.0,
+        "beds": 3,
+        "baths": 2.0,
+        "sqft": 1500,
+        "description": "Brick bungalow",
+        "image_url": None,
+        "area": "Sarnia",
+    }
+    profile = {
+        "name": "Riley Realty",
+        "agency": "Blue Door",
+        "area": "Sarnia",
+        "tagline": "Homes with heart",
+        "tone": "warm, professional",
+    }
+
+    async def fake_ingest(url):
+        assert url == "https://riley.example"
+        return [listing], profile
+
+    monkeypatch.setattr(onboard_mod.ingest_service, "ingest_url", fake_ingest)
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/onboard",
+            data={"realtor": "", "authorized": "true", "url": "https://riley.example"},
+        )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["realtor"] == "Riley Realty"  # display name inferred from the site
+    assert body["listings"][0]["address"].startswith("88 Maple")
+    assert body["profile"]["tone"] == "warm, professional"
+
+
+async def test_onboard_url_no_listings_returns_200_with_profile(monkeypatch):
+    # A crawl that fetched fine but found no listings still succeeds and keeps the profile, so
+    # the console can show the "no listings" state instead of a misleading fetch error.
+    profile = {
+        "name": "Riley Realty",
+        "agency": None,
+        "area": "Sarnia",
+        "tagline": None,
+        "tone": None,
+    }
+
+    async def fake_ingest(url):
+        return [], profile
+
+    monkeypatch.setattr(onboard_mod.ingest_service, "ingest_url", fake_ingest)
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/onboard",
+            data={"realtor": "", "authorized": "true", "url": "https://riley.example"},
+        )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["listings"] == []
+    assert body["profile"]["name"] == "Riley Realty"
+    assert body["realtor"] == "Riley Realty"
+
+
+async def test_onboard_replaces_previous_staging(monkeypatch):
+    # Re-fetching must replace, not accumulate: the set the realtor reviews is the set that
+    # goes live, so a mistyped-then-corrected fetch cannot silently pile up stale drafts.
+    batch = {"address": ""}
+
+    async def fake_ingest(url):
+        return [{"address": batch["address"]}], None
+
+    monkeypatch.setattr(onboard_mod.ingest_service, "ingest_url", fake_ingest)
+    async with _client() as c:
+        batch["address"] = "1 First St"
+        first = await c.post(
+            "/api/v1/onboard", data={"authorized": "true", "url": "https://a.example"}
+        )
+        assert first.status_code == 201
+        batch["address"] = "2 Second St"
+        second = await c.post(
+            "/api/v1/onboard", data={"authorized": "true", "url": "https://a.example"}
+        )
+        assert second.status_code == 201
+        listed = await c.get("/api/v1/listings")
+    assert [x["address"] for x in listed.json()] == ["2 Second St"]
+
+
+async def test_onboard_without_url_or_file_is_400():
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/onboard", data={"realtor": "Riley", "authorized": "true"}
+        )
+    assert resp.status_code == 400
+
+
+async def test_onboard_url_still_requires_consent():
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/onboard",
+            data={
+                "realtor": "Riley",
+                "authorized": "false",
+                "url": "https://x.example",
+            },
+        )
+    assert resp.status_code == 403
 
 
 async def test_onboard_requires_authorization():

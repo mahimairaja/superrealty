@@ -1,8 +1,16 @@
+import asyncio
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from src.core.clerk import CurrentTenant
 from src.memory.store import get_memory_store
-from src.schemas.listing_schemas import ConfirmResponse, ListingDraft, OnboardResponse
+from src.schemas.listing_schemas import (
+    ConfirmResponse,
+    ListingDraft,
+    OnboardResponse,
+    RealtorProfile,
+)
+from src.services import fetch_service, ingest_service
 from src.services.onboard_service import extract_drafts, get_staging_store
 
 router = APIRouter(prefix="/onboard", tags=["onboard"])
@@ -14,43 +22,86 @@ router = APIRouter(prefix="/onboard", tags=["onboard"])
 @router.post("", response_model=OnboardResponse, status_code=status.HTTP_201_CREATED)
 async def onboard(
     tenant_id: CurrentTenant,
-    realtor: str = Form(...),
+    realtor: str = Form(""),  # optional: the URL flow infers the name from the site
     authorized: bool = Form(False),
     file: UploadFile | None = File(None),
+    url: str | None = Form(None),
 ) -> OnboardResponse:
-    # The realtor must confirm these are their own listings before anything is staged.
+    # Consent gate: the realtor must affirm they are authorized to use these listings before
+    # we fetch or read anything. Nothing goes live here; it is staged for their review.
     if not authorized:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             detail="confirm you are authorized to use these listings",
         )
-    if file is None:
+
+    profile: dict | None = None
+    if url:
+        # Fan-out: crawl the realtor's OWN site from the seed URL and extract every listing
+        # plus a short profile. Bounded by a deadline so a slow site can't hang the request.
+        try:
+            drafts, profile = await asyncio.wait_for(
+                ingest_service.ingest_url(url), timeout=75.0
+            )
+        except fetch_service.FetchError as exc:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"couldn't read that URL: {exc}",
+            ) from exc
+        except TimeoutError as exc:
+            raise HTTPException(
+                status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="that site took too long; try the file upload instead",
+            ) from exc
+    elif file is not None:
+        drafts = extract_drafts(await file.read(), file.filename)
+    else:
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, detail="provide a listings file"
+            status.HTTP_400_BAD_REQUEST, detail="provide a listings URL or file"
         )
-    drafts = extract_drafts(await file.read(), file.filename)
-    if not drafts:
+
+    # Drop anything without a clean string address so a malformed record can't 500 the
+    # response build (ListingDraft requires a str address) or reach the assistant.
+    drafts = [
+        d for d in drafts if isinstance(d.get("address"), str) and d["address"].strip()
+    ]
+
+    # A URL crawl that fetched fine but found no listings still succeeds (200) and keeps the
+    # inferred profile, so the console can show a friendly "no listings" state; only the file
+    # path treats an empty result as unreadable input.
+    if not drafts and not url:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="no listings could be read; try uploading a CSV or PDF instead",
+            detail="no listings could be read; try a CSV or PDF, or a different URL",
         )
-    staged = get_staging_store().stage(tenant_id, drafts)
+
+    # Replace, not append: clearing first means the set the realtor reviews is exactly the set
+    # that goes live, even if they re-fetch or switch between URL and file before confirming.
+    store = get_staging_store()
+    store.clear(tenant_id)
+    staged = store.stage(tenant_id, drafts)
+    store.stage_profile(tenant_id, profile)
     return OnboardResponse(
-        realtor=realtor, listings=[ListingDraft(**d) for d in staged]
+        realtor=(profile or {}).get("name") or realtor,
+        listings=[ListingDraft(**d) for d in staged],
+        profile=RealtorProfile(**profile) if profile else None,
     )
 
 
 @router.post("/confirm", response_model=ConfirmResponse)
 async def confirm(
     tenant_id: CurrentTenant,
-    realtor: str = Form(...),
+    realtor: str = Form(""),
 ) -> ConfirmResponse:
     # Insert the reviewed staging set into the tenant's Cognee memory (the system of record).
-    drafts = get_staging_store().list(tenant_id)
+    store = get_staging_store()
+    drafts = store.list(tenant_id)
     if not drafts:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="nothing staged for this realtor"
         )
-    await get_memory_store().add_listings(tenant_id, {"name": realtor}, drafts)
-    get_staging_store().clear(tenant_id)
-    return ConfirmResponse(realtor=realtor, inserted=len(drafts))
+    profile = store.get_profile(tenant_id) or {}
+    name = profile.get("name") or realtor
+    await get_memory_store().add_listings(tenant_id, {"name": name}, drafts)
+    store.clear(tenant_id)
+    return ConfirmResponse(realtor=name, inserted=len(drafts))
