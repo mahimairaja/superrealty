@@ -102,3 +102,37 @@ def test_looks_like_js_shell():
         "<body></body></html>"
     )
     assert not looks_like_js_shell("<html><body>" + "home " * 200 + "</body></html>")
+
+
+async def test_fetch_html_caps_oversized_body(monkeypatch):
+    # A huge body is read only up to the cap (bounded memory), then truncated.
+    monkeypatch.setattr(fetch_service, "_MAX_BYTES", 200)
+    big = b"<html><body>" + b"x" * 20000 + b"</body></html>"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=big, headers={"content-type": "text/html; charset=utf-8"}
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        out = await fetch_service.fetch_html("http://8.8.8.8/", client=client)
+    finally:
+        await client.aclose()
+    assert len(out) <= 200
+
+
+async def test_fetch_html_returns_small_body():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=b"<html><body>hello world</body></html>",
+            headers={"content-type": "text/html"},
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        out = await fetch_service.fetch_html("http://8.8.8.8/", client=client)
+    finally:
+        await client.aclose()
+    assert "hello world" in out

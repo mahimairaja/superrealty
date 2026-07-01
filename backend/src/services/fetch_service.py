@@ -142,12 +142,31 @@ def discover_links(base_url: str, html: str) -> list[str]:
     return out
 
 
+async def _read_capped(resp: httpx.Response) -> str:
+    """Read a STREAMED response body but stop at _MAX_BYTES, so a huge (or malicious) page can't
+    exhaust memory: previously the whole body was buffered before truncating the text. Peak
+    memory is bounded to about _MAX_BYTES plus one chunk; the first _MAX_BYTES of text is kept
+    (listing structured data lives near the top of the document), so this stays graceful.
+    """
+    total = 0
+    chunks: list[bytes] = []
+    async for chunk in resp.aiter_bytes():
+        chunks.append(chunk)
+        total += len(chunk)
+        if total >= _MAX_BYTES:
+            break  # stop reading; do not buffer the rest
+    encoding = resp.charset_encoding or "utf-8"
+    return b"".join(chunks).decode(encoding, errors="replace")[:_MAX_BYTES]
+
+
 async def _get(client: httpx.AsyncClient, url: str) -> httpx.Response:
-    """GET with manual redirect handling so every hop is re-validated against the SSRF guard."""
+    """GET (streamed) with manual redirect handling so every hop is re-validated against the
+    SSRF guard. Returns an open streamed response; the caller reads it capped and closes it."""
     current = validate_url(url)
     for _ in range(4):
-        resp = await client.get(current)
+        resp = await client.send(client.build_request("GET", current), stream=True)
         if resp.is_redirect:
+            await resp.aclose()
             location = resp.headers.get("location")
             if not location:
                 break
@@ -162,11 +181,15 @@ async def fetch_html(url: str, client: httpx.AsyncClient | None = None) -> str:
     client = client or _new_client(timeout=_TIMEOUT, follow_redirects=False)
     try:
         resp = await _get(client, url)
-        resp.raise_for_status()
-        ctype = resp.headers.get("content-type", "").lower()
-        if not any(t in ctype for t in _TEXTUAL):
-            raise FetchError(f"unexpected content type: {ctype or 'unknown'}")
-        return resp.text[:_MAX_BYTES]
+        try:
+            if resp.status_code >= 400:
+                raise FetchError(f"HTTP {resp.status_code}")
+            ctype = resp.headers.get("content-type", "").lower()
+            if not any(t in ctype for t in _TEXTUAL):
+                raise FetchError(f"unexpected content type: {ctype or 'unknown'}")
+            return await _read_capped(resp)
+        finally:
+            await resp.aclose()
     except httpx.HTTPError as exc:
         raise FetchError(str(exc)) from exc
     finally:
@@ -180,9 +203,10 @@ async def fetch_readable(url: str) -> str:
     """
     validate_url(url)
     async with _new_client(timeout=_READER_TIMEOUT, follow_redirects=True) as client:
-        resp = await client.get(f"https://r.jina.ai/{url}")
-        resp.raise_for_status()
-        return resp.text[:_MAX_BYTES]
+        async with client.stream("GET", f"https://r.jina.ai/{url}") as resp:
+            if resp.status_code >= 400:
+                raise FetchError(f"HTTP {resp.status_code}")
+            return await _read_capped(resp)
 
 
 async def _read_sitemap(
