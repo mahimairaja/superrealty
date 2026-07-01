@@ -9,8 +9,11 @@ A hard call-length cap bounds cost.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 import uuid
+from typing import Any
 
 from livekit.agents import Agent, RunContext, function_tool, get_job_context
 
@@ -19,6 +22,35 @@ from src.prompts.instructions import REALTOR_INSTRUCTIONS
 from src.services.api_client import BackendApiClient
 
 logger = logging.getLogger("agent")
+
+
+def _filter_by_criteria(
+    catalog: list[dict[str, Any]], criteria: str
+) -> list[dict[str, Any]]:
+    """Best-effort narrow of the catalog for the shortlist. Parses a bedroom count from the
+    natural-language criteria (the most reliable signal); falls back to the whole catalog so
+    the buyer always sees homes.
+    """
+    match = re.search(r"(\d+)\s*(?:\+|or more)?\s*(?:bed|bedroom|br)", criteria.lower())
+    if match:
+        min_beds = int(match.group(1))
+        narrowed = [h for h in catalog if (h.get("beds") or 0) >= min_beds]
+        if narrowed:
+            return narrowed
+    return catalog
+
+
+def _find_listing(catalog: list[dict[str, Any]], home: str) -> dict[str, Any] | None:
+    """Resolve a home the buyer names (by code or address substring) to a catalog entry."""
+    needle = home.strip().lower()
+    for h in catalog:
+        if needle and needle == str(h.get("code") or "").lower():
+            return h
+    for h in catalog:
+        if needle and needle in str(h.get("address") or "").lower():
+            return h
+    return None
+
 
 _RECORDING_NOTICE = (
     "Start by briefly and naturally letting the buyer know this call may be recorded for "
@@ -49,6 +81,18 @@ class RealtyAgent(Agent):
         self._booking_key: str | None = None
         # The buyer phone captured this call, for the call-log link on close.
         self.last_phone: str | None = None
+        # The structured listing catalog, fetched once and reused to push house cards.
+        self._catalog: list[dict[str, Any]] | None = None
+        # Detached UI-push tasks (held so they are not garbage-collected mid-flight).
+        self._bg: set[asyncio.Task[Any]] = set()
+
+    def _fire(self, coro: Any) -> None:
+        """Run a UI push in the background so it never adds latency to the voice turn (a slow
+        or unanswering caller, e.g. SIP, would otherwise block the reply on the RPC timeout).
+        """
+        task = asyncio.create_task(coro)
+        self._bg.add(task)
+        task.add_done_callback(self._bg.discard)
 
     async def on_enter(self) -> None:
         # Cap call length so a stuck or abusive session cannot run up STT/LLM/TTS cost.
@@ -87,6 +131,53 @@ class RealtyAgent(Agent):
                 "details and follow up?"
             )
 
+    # ---- Live UI: push tool events to the caller's screen -------------------
+    # The buyer's browser registers an "onToolEvent" RPC method; we call it as tools run so
+    # house cards, the booking, and the simulated SMS appear in sync with the conversation.
+    # Best-effort: a failed push (slow or gone browser) never breaks the voice turn.
+
+    @staticmethod
+    def _caller_identity() -> str | None:
+        try:
+            room = get_job_context().room
+        except Exception:  # noqa: BLE001  (no job context, e.g. console mode)
+            return None
+        for participant in room.remote_participants.values():
+            return str(participant.identity)
+        return None
+
+    async def _push_event(self, event_type: str, data: Any) -> None:
+        identity = self._caller_identity()
+        if not identity:
+            return
+        try:
+            await get_job_context().room.local_participant.perform_rpc(
+                destination_identity=identity,
+                method="onToolEvent",
+                payload=json.dumps({"type": event_type, "data": data}),
+                response_timeout=5.0,
+            )
+        except Exception as exc:  # noqa: BLE001  (UI push is best-effort)
+            logger.debug("tool-event push failed: %s", exc)
+
+    async def _ensure_catalog(self) -> list[dict[str, Any]]:
+        if self._catalog is None:
+            try:
+                self._catalog = await self._api.list_listings()
+            except Exception as exc:  # noqa: BLE001
+                # Leave the cache unset so a later tool call retries rather than being stuck
+                # with an empty catalog for the rest of the call after one transient failure.
+                logger.warning("catalog fetch failed: %s", exc)
+                return []
+        return self._catalog
+
+    async def _emit_shortlist(self, criteria: str) -> None:
+        catalog = await self._ensure_catalog()
+        if not catalog:
+            return
+        matches = _filter_by_criteria(catalog, criteria)
+        await self._push_event("shortlist", {"criteria": criteria, "matches": matches})
+
     @function_tool
     async def search_listings(self, context: RunContext, criteria: str) -> str:
         """Find homes from the realtor's own connected listings, and always call this
@@ -95,7 +186,29 @@ class RealtyAgent(Agent):
         know what is available or to list everything, pass a broad query such as
         "all current listings" to get the full set instead of asking for criteria.
         """
-        return await self._search(criteria)
+        answer = await self._search(criteria)
+        self._fire(self._emit_shortlist(criteria))
+        return answer
+
+    @function_tool
+    async def show_home(self, context: RunContext, home: str) -> str:
+        """Pull ONE specific home up on the buyer's screen with its photo and full details.
+        Call this whenever the buyer asks about a particular home or you are describing one in
+        depth. `home` is the address or the listing code (e.g. "88 Maple Ridge" or "RR-102").
+        """
+        listing = _find_listing(await self._ensure_catalog(), home)
+        if not listing:
+            return "I couldn't find that exact home. Want me to list what's available?"
+        self._fire(self._push_event("property", listing))
+        beds = listing.get("beds")
+        price = listing.get("price")
+        price_txt = (
+            f"${int(price):,}" if isinstance(price, int | float) else "price on request"
+        )
+        return (
+            f"Putting {listing.get('address')} on your screen now: {price_txt}"
+            f"{f', {beds} bed' if beds else ''}. {listing.get('description') or ''}"
+        )
 
     @function_tool
     async def capture_lead(
@@ -125,6 +238,11 @@ class RealtyAgent(Agent):
             )
         except Exception as exc:  # noqa: BLE001  (degrade gracefully)
             logger.warning("capture_lead failed: %s", exc)
+        self._fire(
+            self._push_event(
+                "lead", {"name": name, "phone": phone, "criteria": criteria or None}
+            )
+        )
         return f"Thanks{', ' + name if name else ''}. I have your details."
 
     @function_tool
@@ -172,6 +290,18 @@ class RealtyAgent(Agent):
             logger.warning("book_showing failed: %s", exc)
             return "That did not go through. Can I take your number and have someone follow up?"
         status = result.get("status")
+        self._fire(
+            self._push_event(
+                "booking",
+                {
+                    "propertyCode": property_code,
+                    "address": result.get("address"),
+                    "startUtc": start_utc,
+                    "status": status,
+                    "synced": bool(result.get("synced")),
+                },
+            )
+        )
         if status == "accepted" and result.get("synced"):
             return "You are all set. The showing is booked."
         if status in ("accepted", "pending"):
