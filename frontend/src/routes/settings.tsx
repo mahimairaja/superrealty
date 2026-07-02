@@ -63,7 +63,7 @@ export default function Settings() {
         <CardContent className="flex flex-col gap-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Name</span>
-            <span className="font-medium">{organization?.name ?? "—"}</span>
+            <span className="font-medium">{organization?.name ?? "-"}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Members</span>

@@ -99,7 +99,7 @@ export default function Overview() {
                     {s.label}
                   </div>
                   <div className="text-3xl font-semibold tabular-nums">
-                    {loading ? "—" : s.value}
+                    {loading ? "-" : s.value}
                   </div>
                 </div>
                 <span className="flex size-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -126,7 +126,7 @@ export default function Overview() {
                   Connect your listings
                 </Link>
                 <span className="text-muted-foreground">
-                  — paste your site URL, or try our sample site.
+                  Paste your site URL, or try our sample site.
                 </span>
               </li>
               <li className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export default function Overview() {
                 </span>
                 <span className="font-medium">Share your call link</span>
                 <span className="text-muted-foreground">
-                  — your assistant answers and remembers every caller.
+                  Your assistant answers and remembers every caller.
                 </span>
               </li>
             </ol>

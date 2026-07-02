@@ -104,8 +104,8 @@ export default function Listings() {
     setCrawling(true);
     setStatus(
       sample
-        ? "Reading our sample site — this can take a moment..."
-        : "Reading your site — this can take up to a minute...",
+        ? "Reading our sample site, this can take a moment..."
+        : "Reading your site, this can take up to a minute...",
     );
     try {
       const res = await onboardFromUrl(realtor, targetUrl);
@@ -143,7 +143,7 @@ export default function Listings() {
   }
 
   // Consent isn't required for the sample: it's our own site, offered for exactly this. Nothing
-  // goes live either way — the pulled listings still land in the review buffer first.
+  // goes live either way; the pulled listings still land in the review buffer first.
   async function handleTrySample() {
     setUrl(SAMPLE_URL);
     await runUrlOnboard(SAMPLE_URL, true);
@@ -351,7 +351,7 @@ export default function Listings() {
                 </div>
                 <div className="mt-1 text-sm">
                   {[profile.name, profile.agency].filter(Boolean).join(" · ")}
-                  {profile.area ? ` — ${profile.area}` : ""}
+                  {profile.area ? ` · ${profile.area}` : ""}
                 </div>
                 {profile.tagline && (
                   <p className="text-sm text-muted-foreground">"{profile.tagline}"</p>
