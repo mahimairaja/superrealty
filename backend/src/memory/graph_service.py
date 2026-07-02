@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import cognee
+from cognee import SearchType
 from cognee.infrastructure.databases.graph import get_graph_engine
 from cognee.modules.engine.models import NodeSet
 
@@ -69,6 +71,39 @@ class GraphService:
             if source in kept and target in kept:
                 edges.append({"source": source, "target": target, "rel": rel})
         return {"nodes": nodes, "edges": edges}
+
+    _INSIGHT_PROMPTS = (
+        (
+            "What buyers want",
+            "Across remembered buyers, what are they most asking for lately? One sentence.",
+        ),
+        (
+            "Hot neighbourhoods",
+            "Which neighbourhoods or areas are most in demand across buyers? One sentence.",
+        ),
+    )
+
+    async def insights(self, tenant_id: str) -> list[dict[str, Any]]:
+        try:
+            await ensure_cognee()
+        except Exception:  # noqa: BLE001  (insights are best-effort; never raise)
+            return []
+        cards: list[dict[str, Any]] = []
+        for title, prompt in self._INSIGHT_PROMPTS:
+            try:
+                results = await cognee.search(
+                    query_text=prompt,
+                    query_type=SearchType.GRAPH_SUMMARY_COMPLETION,
+                    node_type=NodeSet,
+                    node_name=[tenant_tag(tenant_id)],
+                    top_k=3,
+                )
+            except Exception:  # noqa: BLE001
+                continue
+            body = str(results[0]).strip() if results else ""
+            if body:
+                cards.append({"title": title, "body": body})
+        return cards
 
     async def match_report(
         self, tenant_id: str, listing: dict[str, Any]

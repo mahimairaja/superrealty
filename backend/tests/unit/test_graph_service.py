@@ -1,5 +1,7 @@
 # backend/tests/unit/test_graph_service.py
+import cognee as cognee_pkg
 import pytest
+from cognee import SearchType
 
 import src.memory.graph_service as gs
 import src.memory.store as store_mod
@@ -105,6 +107,41 @@ async def test_get_subgraph_keeps_the_most_recent_nodes_when_capping(monkeypatch
     out = await gs.get_graph_service().get_subgraph("org_abc", cap=2)
     labels = {n["label"] for n in out["nodes"]}
     assert labels == {"4 Main St", "3 Main St"}  # newest two, not the oldest two
+
+
+async def test_insights_returns_cards(monkeypatch):
+    async def _noop():
+        return None
+
+    async def fake_search(**kwargs):
+        assert kwargs["query_type"] == SearchType.GRAPH_SUMMARY_COMPLETION
+        assert kwargs["node_name"] == ["tenant_org_abc"]
+        return ["Buyers are mostly asking for 3-bed homes under $600k in Sarnia."]
+
+    monkeypatch.setattr(gs, "ensure_cognee", _noop, raising=True)
+    monkeypatch.setattr(cognee_pkg, "search", fake_search, raising=True)
+    cards = await gs.get_graph_service().insights("org_abc")
+    assert cards and cards[0]["title"] and "3-bed" in cards[0]["body"]
+
+
+async def test_insights_never_raises(monkeypatch):
+    async def _noop():
+        return None
+
+    async def boom(**kwargs):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(gs, "ensure_cognee", _noop, raising=True)
+    monkeypatch.setattr(cognee_pkg, "search", boom, raising=True)
+    assert await gs.get_graph_service().insights("org_abc") == []
+
+
+async def test_insights_returns_empty_when_setup_fails(monkeypatch):
+    async def boom_setup():
+        raise RuntimeError("cognee down")
+
+    monkeypatch.setattr(gs, "ensure_cognee", boom_setup, raising=True)
+    assert await gs.get_graph_service().insights("org_abc") == []
 
 
 async def test_match_report_grounds_buyers_in_the_narrative(monkeypatch):

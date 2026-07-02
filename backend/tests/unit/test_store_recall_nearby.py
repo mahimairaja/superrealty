@@ -30,3 +30,11 @@ async def test_recall_nearby_never_raises(monkeypatch):
     monkeypatch.setattr(store_mod, "ensure_cognee", _noop, raising=True)
     monkeypatch.setattr(store_mod.cognee, "search", boom, raising=True)
     assert await store_mod.get_memory_store().recall_nearby("org_abc", "x") is None
+
+
+async def test_recall_nearby_returns_none_when_setup_fails(monkeypatch):
+    async def boom_setup():
+        raise RuntimeError("cognee down")
+
+    monkeypatch.setattr(store_mod, "ensure_cognee", boom_setup, raising=True)
+    assert await store_mod.get_memory_store().recall_nearby("org_abc", "x") is None

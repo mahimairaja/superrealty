@@ -255,3 +255,14 @@ export async function getListingMatches(code: string): Promise<MatchReport> {
   });
   return asJSON<MatchReport>(res, "getListingMatches");
 }
+
+export interface Insight {
+  title: string;
+  body: string;
+}
+
+// Graph-wide market insights (Cognee SUMMARIES) for the dashboard.
+export async function getInsights(): Promise<Insight[]> {
+  const res = await fetch(`${API_BASE}/insights`, { headers: await authHeaders() });
+  return asJSON<Insight[]>(res, "getInsights");
+}

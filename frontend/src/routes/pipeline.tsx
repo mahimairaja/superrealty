@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarCheck, PhoneCall, Users } from "lucide-react";
-import { getPipeline, type PipelineResponse } from "@/lib/api";
+import { getInsights, getPipeline, type Insight, type PipelineResponse } from "@/lib/api";
 import { MatchCard } from "@/components/match-card";
 import { MemoryGraph } from "@/components/memory-graph";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,10 @@ function fmt(iso?: string | null): string {
 
 export default function Pipeline() {
   const [data, setData] = useState<PipelineResponse>({ bookings: [], calls: [] });
+  const [insights, setInsights] = useState<Insight[]>([]);
+  useEffect(() => {
+    getInsights().then(setInsights).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -172,6 +176,22 @@ export default function Pipeline() {
       </div>
 
       <MatchCard />
+
+      {insights.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Market insights</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            {insights.map((i) => (
+              <div key={i.title}>
+                <div className="font-medium">{i.title}</div>
+                <div className="text-muted-foreground">{i.body}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

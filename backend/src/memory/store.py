@@ -445,7 +445,6 @@ class MemoryStore:
         liked (buyer -> liked listing -> neighbourhood -> nearby newer listing). Best-effort:
         returns None on any error so it never blocks or breaks a call.
         """
-        await ensure_cognee()
         query = (
             "This returning buyer previously liked a home described here: "
             f"{summary}. Is there a different, newer connected listing in the same area or "
@@ -453,6 +452,7 @@ class MemoryStore:
             "If not, answer with nothing."
         )
         try:
+            await ensure_cognee()
             results = await cognee.search(
                 query_text=query,
                 query_type=SearchType.GRAPH_COMPLETION,

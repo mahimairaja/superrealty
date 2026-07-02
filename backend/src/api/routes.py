@@ -4,6 +4,7 @@ from src.api.endpoints.availability import router as availability_router
 from src.api.endpoints.bookings import router as bookings_router
 from src.api.endpoints.buyers import router as buyers_router
 from src.api.endpoints.calls import router as calls_router
+from src.api.endpoints.graph import insights_router
 from src.api.endpoints.graph import router as graph_router
 from src.api.endpoints.listings import router as listings_router
 from src.api.endpoints.matches import router as matches_router
@@ -30,3 +31,4 @@ routers.include_router(matches_router)
 routers.include_router(pipeline_router)
 routers.include_router(settings_router)
 routers.include_router(graph_router)
+routers.include_router(insights_router)
