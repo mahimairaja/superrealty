@@ -217,3 +217,27 @@ export async function getBuyers(): Promise<BuyerSummary[]> {
   });
   return asJSON<BuyerSummary[]>(res, "getBuyers");
 }
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  props: Record<string, unknown>;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  rel: string;
+}
+
+export interface MemoryGraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// The realtor's Cognee memory subgraph (nodes + edges), scoped to their tenant.
+export async function getGraph(): Promise<MemoryGraphData> {
+  const res = await fetch(`${API_BASE}/graph`, { headers: await authHeaders() });
+  return asJSON<MemoryGraphData>(res, "getGraph");
+}
