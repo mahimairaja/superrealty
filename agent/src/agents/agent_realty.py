@@ -129,6 +129,11 @@ class RealtyAgent(Agent):
         """
         if self._recalled or not self.last_phone:
             return None
+        # Only look up a plausible phone (7-15 digits): the number can arrive from an LLM tool
+        # arg, so this rejects garbage before it reaches the backend. Leave _recalled unset on a
+        # bad value so a later, valid number can still recall.
+        if not (7 <= len(re.sub(r"\D", "", self.last_phone)) <= 15):
+            return None
         self._recalled = True
         try:
             data = await self._api.get_buyer(self.last_phone)

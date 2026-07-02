@@ -89,6 +89,25 @@ async def test_get_realtor_fetches_persona():
     assert persona["tone"] == "warm, local"
 
 
+async def test_get_buyer_url_encodes_the_phone():
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["raw_path"] = request.url.raw_path.decode()
+        return httpx.Response(200, json={"found": False})
+
+    client = BackendApiClient(
+        base_url="http://test", transport=httpx.MockTransport(handler)
+    )
+    # A slash-bearing value must be encoded, not create extra path segments (no traversal).
+    await client.get_buyer("+1/../admin")
+    assert "/api/v1/buyers/" in seen["raw_path"]
+    assert (
+        "%2F" in seen["raw_path"]
+        and "/admin" not in seen["raw_path"].split("/api/v1/buyers/")[1]
+    )
+
+
 async def test_lead_availability_booking_routes():
     seen: list = []
 
