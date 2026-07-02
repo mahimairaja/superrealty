@@ -19,7 +19,7 @@ from src.core.config import config
 from src.core.events import register_event_handlers
 from src.runtime.observers import post_call_log
 from src.services.api_client import BackendApiClient
-from src.utils.room import identify, parse_tenant_id, tenant_from_metadata
+from src.utils.room import identify, resolve_tenant_id
 
 logger = logging.getLogger("agent")
 
@@ -52,11 +52,14 @@ async def entrypoint(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
     await ctx.connect()
 
-    # Recover the realtor (tenant) this call belongs to from the backend-minted room name
-    # (t_{tenant}_{random}). SIP callers reach a provider-named room instead, so fall back to
-    # the tenant passed as job metadata by the SIP dispatch rule. Memory is then scoped to it.
-    tenant_id = parse_tenant_id(ctx.room.name) or tenant_from_metadata(
-        getattr(ctx.job, "metadata", None)
+    # Recover the realtor (tenant) this call belongs to. The backend-minted room name
+    # (t_{tenant}_{random}) carries it for web calls; SIP dispatch passes it as job metadata;
+    # a direct dispatcher that names its own room (e.g. Cekura test runs) passes it as room
+    # metadata. Memory, persona, and listings are then scoped to it.
+    tenant_id = resolve_tenant_id(
+        ctx.room.name,
+        getattr(ctx.job, "metadata", None),
+        getattr(ctx.room, "metadata", None),
     )
     if tenant_id:
         ctx.log_context_fields["tenant"] = tenant_id
