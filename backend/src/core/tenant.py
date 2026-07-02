@@ -32,6 +32,23 @@ def tenant_from_room_name(room: str | None) -> str | None:
     return tenant_id
 
 
+def has_valid_agent_secret(x_agent_secret: str | None) -> bool:
+    """True when the presented secret matches the configured AGENT_SERVICE_SECRET.
+
+    Identifies the trusted first-party voice worker in constant time. Shared by the agent
+    tenant gate and the widget guard so both recognize the agent by the same rule. Returns
+    False when the secret is unconfigured or absent, so it never accidentally trusts a caller.
+    """
+    expected = (
+        config.AGENT_SERVICE_SECRET.get_secret_value()
+        if config.AGENT_SERVICE_SECRET
+        else None
+    )
+    return bool(
+        expected and x_agent_secret and hmac.compare_digest(x_agent_secret, expected)
+    )
+
+
 async def get_agent_tenant_id(
     x_tenant_id: Annotated[str, Header(alias="X-Tenant-Id")],
     x_agent_secret: Annotated[str | None, Header(alias="X-Agent-Secret")] = None,
@@ -44,16 +61,7 @@ async def get_agent_tenant_id(
     client could forge a tenant id and poison another realtor's memory or book on their
     calendar. The secret must be configured; if it is unset the endpoint refuses outright.
     """
-    expected = (
-        config.AGENT_SERVICE_SECRET.get_secret_value()
-        if config.AGENT_SERVICE_SECRET
-        else None
-    )
-    if (
-        not expected
-        or not x_agent_secret
-        or not hmac.compare_digest(x_agent_secret, expected)
-    ):
+    if not has_valid_agent_secret(x_agent_secret):
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail="agent service authentication required",

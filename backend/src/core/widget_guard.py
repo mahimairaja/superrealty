@@ -15,6 +15,7 @@ from collections.abc import Callable
 from fastapi import HTTPException, Request, status
 
 from src.core.config import get_config
+from src.core.tenant import has_valid_agent_secret
 
 
 class RateLimiter:
@@ -70,7 +71,15 @@ def enforce_widget_guard(request: Request) -> None:
 
     The Origin check runs first so a disallowed-origin flood is rejected without consuming
     the rate-limit budget.
+
+    The trusted first-party voice worker (a valid X-Agent-Secret) is not a browser and has no
+    real Origin, so it bypasses both checks. They exist to bound casual public abuse of the
+    widget endpoints, not to gate our own backend-to-agent calls (availability, call close);
+    without this the agent's own requests 403. A forged Origin is weaker than this secret, so
+    honoring the secret does not loosen the guard for browsers.
     """
+    if has_valid_agent_secret(request.headers.get("x-agent-secret")):
+        return None
     cfg = get_config()
     allowed = cfg.WIDGET_ALLOWED_ORIGINS
     origin = request.headers.get("origin")
