@@ -31,6 +31,50 @@ function pageTitle(pathname: string): string {
   return NAV.find((n) => pathname.startsWith(n.to))?.label ?? "Dashboard";
 }
 
+// Brand-new signup with no organization yet: a clean full-page first run (no dashboard nav,
+// which would only lead to tenant-scoped pages that can't load) that creates their agency and
+// previews what happens next.
+function FirstRun() {
+  return (
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 bg-background px-4 py-12">
+      <div className="absolute right-4 top-4 flex items-center gap-2">
+        <UserButton />
+        <ThemeToggle />
+      </div>
+      <div className="flex items-center gap-2">
+        <img src="/brand-mark.svg" alt="" className="h-7 w-7" />
+        <span className="text-lg font-semibold tracking-tight">
+          Realty<span className="text-primary">Recall</span>
+        </span>
+      </div>
+      <div className="max-w-md space-y-2 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Create your agency
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Your agency is your workspace. Create one to connect your listings and
+          get your always-on buyer line.
+        </p>
+      </div>
+      <CreateOrganization afterCreateOrganizationUrl="/overview" />
+      <ol className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+        <li>
+          <span className="font-semibold text-foreground">1.</span> Create your
+          agency
+        </li>
+        <li>
+          <span className="font-semibold text-foreground">2.</span> Connect your
+          listings
+        </li>
+        <li>
+          <span className="font-semibold text-foreground">3.</span> Share your
+          call link
+        </li>
+      </ol>
+    </div>
+  );
+}
+
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-1 bg-sidebar text-sidebar-foreground">
@@ -105,6 +149,10 @@ export function DashboardShell() {
     };
   }, [open]);
 
+  // Wait for Clerk before deciding, so we never flash the dashboard or the first run.
+  if (!isLoaded) return <div className="min-h-svh bg-background" />;
+  if (!organization) return <FirstRun />;
+
   return (
     <div className="min-h-svh bg-background lg:grid lg:grid-cols-[16rem_1fr]">
       {/* Desktop sidebar */}
@@ -159,22 +207,7 @@ export function DashboardShell() {
           </h1>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
-          {isLoaded && !organization ? (
-            <div className="flex flex-col items-center gap-6 py-10 text-center">
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold tracking-tight">
-                  Create your agency
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Your organization is your workspace. Create one to connect
-                  listings and get your buyer call link.
-                </p>
-              </div>
-              <CreateOrganization afterCreateOrganizationUrl="/overview" />
-            </div>
-          ) : (
-            <Outlet />
-          )}
+          <Outlet />
         </main>
       </div>
     </div>

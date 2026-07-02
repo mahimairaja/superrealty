@@ -111,6 +111,38 @@ export default function Overview() {
         ))}
       </div>
 
+      {!loading && listings === 0 && (
+        <Card className="border-primary/30 bg-accent/30">
+          <CardContent className="flex flex-col gap-3 py-5">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Getting started
+            </div>
+            <ol className="space-y-2 text-sm">
+              <li className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+                  1
+                </span>
+                <Link to="/listings" className="font-medium text-primary hover:underline">
+                  Connect your listings
+                </Link>
+                <span className="text-muted-foreground">
+                  — paste your site URL, or try our sample site.
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
+                  2
+                </span>
+                <span className="font-medium">Share your call link</span>
+                <span className="text-muted-foreground">
+                  — your assistant answers and remembers every caller.
+                </span>
+              </li>
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
       <CallLinkCard />
 
       {introWho && (
