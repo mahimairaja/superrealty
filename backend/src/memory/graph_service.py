@@ -42,8 +42,13 @@ class GraphService:
         raw_nodes, raw_edges = await graph.get_nodeset_subgraph(
             node_type=NodeSet, node_name=[tenant_tag(tenant_id)]
         )
+        ordered = sorted(
+            raw_nodes,
+            key=lambda n: str((n[1] or {}).get("created_at") or ""),
+            reverse=True,
+        )
         nodes: list[dict[str, Any]] = []
-        for node_id, props in raw_nodes[:cap]:
+        for node_id, props in ordered[:cap]:
             props = props or {}
             nodes.append(
                 {

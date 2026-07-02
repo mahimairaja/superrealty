@@ -81,3 +81,26 @@ async def test_get_subgraph_caps_nodes(monkeypatch):
     assert len(out["nodes"]) == 150
     # edges referencing dropped nodes are removed so the render never dangles
     assert out["edges"] == []
+
+
+async def test_get_subgraph_keeps_the_most_recent_nodes_when_capping(monkeypatch):
+    # created_at ascending by index; with cap=2 the two NEWEST (highest created_at) survive.
+    nodes = [
+        (
+            str(i),
+            {
+                "type": "Listing",
+                "address": f"{i} Main St",
+                "created_at": f"2026-07-0{i}",
+            },
+        )
+        for i in range(1, 5)
+    ]
+
+    async def _fake_engine():
+        return _FakeGraph(nodes, [])
+
+    monkeypatch.setattr(gs, "get_graph_engine", _fake_engine, raising=True)
+    out = await gs.get_graph_service().get_subgraph("org_abc", cap=2)
+    labels = {n["label"] for n in out["nodes"]}
+    assert labels == {"4 Main St", "3 Main St"}  # newest two, not the oldest two
