@@ -26,6 +26,9 @@ class _FakeStore:
             }
         return {"found": False, "phone": phone}
 
+    async def recall_nearby(self, tenant_id: str, summary: str) -> None:
+        return None
+
     async def forget_buyer(self, tenant_id: str, phone: str) -> dict:
         self.forgotten = (tenant_id, phone)
         return {"forgotten": True, "phone": phone}
@@ -83,6 +86,24 @@ async def test_forget_buyer(monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["forgotten"] is True
     assert store.forgotten == (TENANT, "+15195550100")
+
+
+async def test_get_buyer_includes_a_nearby_suggestion_when_found(monkeypatch):
+    class _Store:
+        async def get_buyer(self, tenant_id, phone):
+            return {
+                "found": True,
+                "phone": phone,
+                "summary": "Dana liked a water-view bungalow.",
+            }
+
+        async def recall_nearby(self, tenant_id, summary):
+            return "A new one on Cathcart just came up nearby."
+
+    async with _client(monkeypatch, _Store()) as c:
+        resp = await c.get("/api/v1/buyers/+15195550142")
+    assert resp.status_code == 200
+    assert resp.json()["nearby"] == "A new one on Cathcart just came up nearby."
 
 
 async def test_list_buyers_is_console_scoped(monkeypatch):

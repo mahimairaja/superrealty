@@ -25,6 +25,7 @@ class BuyerRecall(BaseModel):
     found: bool
     phone: str
     summary: str | None = None
+    nearby: str | None = None
 
 
 class BuyerSummary(BaseModel):
