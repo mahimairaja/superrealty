@@ -31,6 +31,23 @@ async def get_by_clerk_org_id(clerk_org_id: str) -> Tenant | None:
         return result.scalars().first()
 
 
+async def set_sms_to(clerk_org_id: str, sms_to: str | None) -> Tenant:
+    """Set the tenant's lead-notification number (creating the row if needed)."""
+    await upsert(clerk_org_id)  # ensure the row exists
+    async with _database().session() as session:
+        result = await session.execute(
+            select(Tenant).where(Tenant.clerk_org_id == clerk_org_id)
+        )
+        tenant = result.scalars().first()
+        if tenant is None:  # pragma: no cover (upsert just created it)
+            raise RuntimeError("tenant vanished after upsert")
+        tenant.sms_to = sms_to
+        session.add(tenant)
+        await session.commit()
+        await session.refresh(tenant)
+        return tenant
+
+
 async def upsert(clerk_org_id: str, name: str | None = None) -> Tenant:
     """Insert-or-get a Tenant keyed by the unique clerk_org_id. Idempotent and
     concurrency-safe: a racing insert that hits the unique constraint falls back to a read.

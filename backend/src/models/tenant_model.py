@@ -14,3 +14,6 @@ class Tenant(BaseModel, table=True):
     clerk_org_id: str = Field(index=True, unique=True, nullable=False)
     name: str | None = Field(default=None)
     plan: str = Field(default="free", nullable=False)
+    # Where the realtor wants post-call lead texts. Per tenant, so each realtor is notified at
+    # their own number; falls back to the global REALTOR_SMS_TO when unset (single-realtor demo).
+    sms_to: str | None = Field(default=None)

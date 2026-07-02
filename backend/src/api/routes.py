@@ -10,6 +10,7 @@ from src.api.endpoints.onboard import router as onboard_router
 from src.api.endpoints.pipeline import router as pipeline_router
 from src.api.endpoints.realtor import router as realtor_router
 from src.api.endpoints.recall import router as recall_router
+from src.api.endpoints.settings import router as settings_router
 from src.api.endpoints.token import router as token_router
 from src.api.endpoints.users import router as users_router
 
@@ -26,3 +27,4 @@ routers.include_router(bookings_router)
 routers.include_router(calls_router)
 routers.include_router(matches_router)
 routers.include_router(pipeline_router)
+routers.include_router(settings_router)

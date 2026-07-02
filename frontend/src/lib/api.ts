@@ -174,6 +174,27 @@ export async function getLiveListings(): Promise<LiveListing[]> {
   return asJSON<LiveListing[]>(res, "getLiveListings");
 }
 
+export interface AccountSettings {
+  sms_to?: string | null;
+}
+
+// The realtor's account settings (where post-call lead texts go).
+export async function getSettings(): Promise<AccountSettings> {
+  const res = await fetch(`${API_BASE}/settings`, { headers: await authHeaders() });
+  return asJSON<AccountSettings>(res, "getSettings");
+}
+
+export async function updateSettings(
+  patch: AccountSettings,
+): Promise<AccountSettings> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify(patch),
+  });
+  return asJSON<AccountSettings>(res, "updateSettings");
+}
+
 // The realtor's synthesized assistant persona (how the agent introduces itself on calls).
 // All-null until they connect listings by URL and confirm.
 export async function getAssistantPersona(): Promise<RealtorProfile> {

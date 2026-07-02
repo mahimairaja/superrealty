@@ -6,7 +6,7 @@ from src.core.config import config
 from src.core.tenant import tenant_from_room_name
 from src.core.widget_guard import enforce_widget_guard
 from src.memory.store import get_memory_store
-from src.repository import call_log_repository
+from src.repository import call_log_repository, tenant_repository
 from src.schemas.call_schemas import CallClose, CallCloseResponse
 from src.services import sms_service
 
@@ -41,18 +41,26 @@ async def close_call(
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("improve on call close failed: %s", exc)
-    await _maybe_send_lead_sms(payload)
+    await _maybe_send_lead_sms(payload, tenant_id)
     return CallCloseResponse(id=row.id, room_name=room)
 
 
-async def _maybe_send_lead_sms(payload: CallClose) -> None:
-    """Text the realtor the buyer details so they can follow up fast. Best-effort; only
-    fires when Telnyx and the realtor's number are configured.
+async def _maybe_send_lead_sms(payload: CallClose, tenant_id: str | None) -> None:
+    """Text the realtor the buyer details so they can follow up fast. Best-effort; only fires
+    when Telnyx is configured and the realtor has a number (their per-tenant Settings number,
+    falling back to the global REALTOR_SMS_TO for the single-realtor demo).
     """
     api_key = (
         config.TELNYX_API_KEY.get_secret_value() if config.TELNYX_API_KEY else None
     )
-    if not (api_key and config.TELNYX_FROM_NUMBER and config.REALTOR_SMS_TO):
+    if not (api_key and config.TELNYX_FROM_NUMBER):
+        return
+    to = None
+    if tenant_id:
+        tenant = await tenant_repository.get_by_clerk_org_id(tenant_id)
+        to = tenant.sms_to if tenant else None
+    to = to or config.REALTOR_SMS_TO
+    if not to:
         return
     text = payload.summary or (
         f"New RealtyRecall call ({payload.outcome or 'completed'})."
@@ -60,7 +68,7 @@ async def _maybe_send_lead_sms(payload: CallClose) -> None:
     )
     try:
         await sms_service.send_sms(
-            to=config.REALTOR_SMS_TO,
+            to=to,
             text=text,
             api_key=api_key,
             from_number=config.TELNYX_FROM_NUMBER,

@@ -128,3 +128,41 @@ async def test_close_call_fires_lead_sms_when_configured(monkeypatch):
     assert resp.status_code == 200
     assert sent["to"] == "+15195551111"
     assert "Dana" in sent["text"]
+
+
+async def test_close_call_lead_sms_prefers_tenant_number(monkeypatch):
+    import types
+
+    async def fake_create(values: dict) -> _Row:
+        return _Row()
+
+    sent: dict = {}
+
+    async def fake_sms(**kwargs):
+        sent.update(kwargs)
+        return {"data": {"id": "m1"}}
+
+    async def fake_get_tenant(org):
+        return types.SimpleNamespace(sms_to="+15195559999")
+
+    monkeypatch.setattr(calls_mod.call_log_repository, "create", fake_create)
+    monkeypatch.setattr(calls_mod, "get_memory_store", lambda: _FakeStore())
+    monkeypatch.setattr(calls_mod.sms_service, "send_sms", fake_sms)
+    monkeypatch.setattr(
+        calls_mod.tenant_repository, "get_by_clerk_org_id", fake_get_tenant
+    )
+    monkeypatch.setattr(calls_mod.config, "TELNYX_API_KEY", _Key(), raising=False)
+    monkeypatch.setattr(
+        calls_mod.config, "TELNYX_FROM_NUMBER", "+15195550000", raising=False
+    )
+    monkeypatch.setattr(
+        calls_mod.config, "REALTOR_SMS_TO", "+15195551111", raising=False
+    )
+
+    async with _client() as c:
+        resp = await c.post(
+            "/api/v1/calls/t_org_abc_xyz123456789/close",
+            json={"outcome": "completed", "summary": "New lead", "buyer_phone": "+1"},
+        )
+    assert resp.status_code == 200
+    assert sent["to"] == "+15195559999"  # the tenant's number, not the global fallback
