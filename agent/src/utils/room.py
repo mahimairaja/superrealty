@@ -45,13 +45,34 @@ def parse_room_metadata(raw: str | None) -> dict:
 
 
 def tenant_from_metadata(raw: str | None) -> str | None:
-    """Recover the tenant_id from dispatch/job metadata JSON ({"tenant_id": "..."}), or None.
+    """Recover the tenant_id from metadata JSON ({"tenant_id": "..."}), or None.
 
-    SIP callers reach a provider-generated room whose name does not carry the tenant, so the SIP
-    dispatch rule passes it as agent job metadata instead (roomConfig.agents[].metadata).
+    Used for callers whose room name cannot carry the tenant: SIP dispatch passes it as agent
+    job metadata (roomConfig.agents[].metadata), and direct LiveKit dispatchers that name their
+    own room pass it as room metadata (ctx.room.metadata).
     """
     value = parse_room_metadata(raw).get("tenant_id")
     return value if isinstance(value, str) and value else None
+
+
+def resolve_tenant_id(
+    room_name: str | None,
+    job_metadata: str | None,
+    room_metadata: str | None,
+) -> str | None:
+    """Recover the call's tenant_id from whichever carrier the dispatcher used, or None.
+
+    Precedence (the carriers are mutually exclusive in practice):
+    1. the backend-minted room name ``t_{tenant}_{random}`` (web and console calls),
+    2. agent job metadata (the SIP dispatch rule sets roomConfig.agents[].metadata),
+    3. LiveKit room metadata, for a dispatcher that names its own room and passes
+       ``{"tenant_id": "..."}`` as room metadata (e.g. Cekura's LiveKit v2 test runs).
+    """
+    return (
+        parse_tenant_id(room_name)
+        or tenant_from_metadata(job_metadata)
+        or tenant_from_metadata(room_metadata)
+    )
 
 
 def identify(participant: rtc.Participant) -> Caller:
