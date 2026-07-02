@@ -1,4 +1,9 @@
-from src.agents.agent_realty import RealtyAgent, _filter_by_criteria, _find_listing
+from src.agents.agent_realty import (
+    RealtyAgent,
+    _filter_by_criteria,
+    _find_listing,
+    _format_listings_answer,
+)
 from src.prompts.instructions import REALTOR_INSTRUCTIONS
 
 CATALOG = [
@@ -50,18 +55,55 @@ def test_instructions_cover_disclosure_and_qualification():
     assert "only" in text  # only the realtor's connected listings
 
 
-async def test_search_delegates_to_backend():
-    api = _FakeApi(answer="A 3 bed bungalow at 123 Maple")
+async def test_listings_answer_is_grounded_in_the_catalog_and_never_recalls():
+    # Listings are answered from the fast structured catalog, not the slow Cognee recall,
+    # so the reply lands in a normal voice turn and quotes only the realtor's real homes.
+    api = _FakeApi(
+        catalog=[
+            {
+                "code": "RR-102",
+                "address": "88 Maple Ridge Drive, Sarnia",
+                "beds": 3,
+                "price": 615000,
+            },
+            {
+                "code": "RR-103",
+                "address": "7 Lakeshore Road, Bright's Grove",
+                "beds": 4,
+                "price": 799000,
+            },
+        ]
+    )
     agent = RealtyAgent(realtor="Riley", api=api)
-    out = await agent._search("3 bed in Sarnia")
-    assert out == "A 3 bed bungalow at 123 Maple"
-    assert api.calls == [("Riley", "3 bed in Sarnia")]
+    out = await agent._listings_answer("3 bedroom in Sarnia")
+    assert (
+        "88 Maple Ridge Drive, Sarnia" in out
+    )  # verbatim from the catalog, not invented
+    assert "$615,000" in out
+    assert api.calls == []  # the slow recall endpoint is never on the voice path
 
 
-async def test_search_degrades_on_backend_error():
-    agent = RealtyAgent(realtor="Riley", api=_FakeApi(raises=True))
-    out = await agent._search("anything")
+async def test_listings_answer_degrades_without_a_catalog():
+    agent = RealtyAgent(realtor="Riley", api=_FakeApi(catalog=[]))
+    out = await agent._listings_answer("anything")
     assert "trouble" in out.lower()
+
+
+def test_format_listings_answer_counts_prices_and_overflow():
+    homes = [
+        {"address": f"{i} Main St", "beds": 3, "price": 500000 + i} for i in range(7)
+    ]
+    out = _format_listings_answer(homes, total=7)
+    assert out.startswith("I have 7 listings")
+    assert "$500,000" in out  # grounded, formatted price
+    assert "2 more" in out  # 7 matched, 5 named, 2 more offered
+
+
+def test_format_listings_answer_subset_missing_price_and_empty():
+    one = [{"address": "1 Oak Ave", "beds": 3, "price": None}]
+    assert "I found one that fits" in _format_listings_answer(one, total=9)
+    assert "price on request" in _format_listings_answer(one, total=9)
+    assert "follow up" in _format_listings_answer([], total=9).lower()
 
 
 def test_filter_by_criteria_parses_bedrooms():

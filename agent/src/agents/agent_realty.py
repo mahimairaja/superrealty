@@ -2,8 +2,8 @@
 
 Answers in the realtor's name, opens with the recording disclosure, qualifies the buyer
 (budget, timeline, financing, area), and recommends homes drawn only from the realtor's
-connected listings via the search_listings tool (backed by the Cognee recall endpoint).
-A hard call-length cap bounds cost.
+connected listings via the search_listings tool (served from the realtor's fast structured
+catalog, so a reply lands inside a normal voice turn). A hard call-length cap bounds cost.
 """
 
 from __future__ import annotations
@@ -50,6 +50,46 @@ def _find_listing(catalog: list[dict[str, Any]], home: str) -> dict[str, Any] | 
         if needle and needle in str(h.get("address") or "").lower():
             return h
     return None
+
+
+def _format_listings_answer(matches: list[dict[str, Any]], total: int) -> str:
+    """Turn the realtor's real catalog rows into one grounded, speakable answer.
+
+    Built entirely from the structured catalog (a direct DB read), with no external recall or
+    LLM synthesis, so a listings reply lands inside a normal voice turn and can never invent a
+    home, price, or address. Names a handful and offers to go through the rest, matching the
+    phone-call guidance in the system prompt.
+    """
+    if not matches:
+        return (
+            "I don't have a connected listing that fits that just now. I can take your "
+            "details and follow up as soon as something matches."
+        )
+
+    def _price(h: dict[str, Any]) -> str:
+        p = h.get("price")
+        return f"${int(p):,}" if isinstance(p, int | float) else "price on request"
+
+    shown = matches[:5]
+    parts = []
+    for h in shown:
+        beds = h.get("beds")
+        bed_txt = f", {beds} bed" if beds else ""
+        parts.append(f"{h.get('address') or 'a home'} at {_price(h)}{bed_txt}")
+    listing_text = "; ".join(parts)
+    count = len(matches)
+    if count >= total:
+        head = (
+            "I have one listing right now" if count == 1 else f"I have {count} listings"
+        )
+    else:
+        head = "I found one that fits" if count == 1 else f"I found {count} that fit"
+    tail = (
+        f" There are {count - len(shown)} more I can go through."
+        if count > len(shown)
+        else ""
+    )
+    return f"{head}: {listing_text}.{tail}"
 
 
 _RECORDING_NOTICE = (
@@ -176,16 +216,22 @@ class RealtyAgent(Agent):
         except Exception as exc:  # noqa: BLE001
             logger.warning("max-duration delete_room failed: %s", exc)
 
-    async def _search(self, criteria: str) -> str:
-        """Recall matching listings from the backend (the realtor's connected set)."""
-        try:
-            return await self._api.recall(self._realtor, criteria)
-        except Exception as exc:  # noqa: BLE001  (degrade gracefully)
-            logger.warning("recall failed: %s", exc)
+    async def _listings_answer(self, criteria: str) -> str:
+        """Answer a listings question from the realtor's fast structured catalog.
+
+        The catalog is a direct DB read (sub-second), unlike the Cognee recall endpoint whose
+        graph+vector+LLM synthesis runs 10-20s and blows the voice turn's timeout. Answering
+        from the catalog keeps replies inside a normal turn while staying fully grounded in the
+        realtor's real, connected listings.
+        """
+        catalog = await self._ensure_catalog()
+        if not catalog:
             return (
-                "I'm having trouble pulling up listings right now. Can I take your "
-                "details and follow up?"
+                "I'm having a little trouble pulling up listings right now. Can I take "
+                "your details and follow up?"
             )
+        matches = _filter_by_criteria(catalog, criteria)
+        return _format_listings_answer(matches, len(catalog))
 
     # ---- Live UI: push tool events to the caller's screen -------------------
     # The buyer's browser registers an "onToolEvent" RPC method; we call it as tools run so
@@ -242,7 +288,7 @@ class RealtyAgent(Agent):
         know what is available or to list everything, pass a broad query such as
         "all current listings" to get the full set instead of asking for criteria.
         """
-        answer = await self._search(criteria)
+        answer = await self._listings_answer(criteria)
         self._fire(self._emit_shortlist(criteria))
         return answer
 
@@ -314,7 +360,12 @@ class RealtyAgent(Agent):
     async def check_availability(self, context: RunContext) -> str:
         """Look up open showing times on the realtor's calendar. Offer only these times."""
         try:
-            data = await self._api.check_availability()
+            # An async-tool filler (livekit-agents 1.6+): if the calendar round-trip runs long
+            # and the line goes quiet, the caller hears a short "one moment" instead of dead air.
+            async with context.with_filler(
+                "Let me check the calendar, one moment.", delay=2
+            ):
+                data = await self._api.check_availability()
         except Exception as exc:  # noqa: BLE001
             logger.warning("check_availability failed: %s", exc)
             return "I'm having trouble loading times. Can I take your details and follow up?"
@@ -341,16 +392,20 @@ class RealtyAgent(Agent):
         self.last_phone = phone
         if self._booking_key is None:
             self._booking_key = str(uuid.uuid4())
+        # Booking is a write to the realtor's calendar: don't let a stray word cut it off
+        # half-done, and cover the round-trip with a filler so the caller never hears silence.
+        context.disallow_interruptions()
         try:
-            result = await self._api.book_showing(
-                {
-                    "idempotency_key": self._booking_key,
-                    "property_code": property_code,
-                    "start": start_utc,
-                    "name": name,
-                    "phone": phone,
-                }
-            )
+            async with context.with_filler("Locking that in, one moment.", delay=2):
+                result = await self._api.book_showing(
+                    {
+                        "idempotency_key": self._booking_key,
+                        "property_code": property_code,
+                        "start": start_utc,
+                        "name": name,
+                        "phone": phone,
+                    }
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning("book_showing failed: %s", exc)
             return "That did not go through. Can I take your number and have someone follow up?"

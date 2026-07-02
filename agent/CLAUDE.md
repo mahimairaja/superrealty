@@ -16,7 +16,7 @@ uv run python -m pytest -q           # tests
 
 ## Architecture
 
-A minimal LiveKit voice agent (`livekit-agents==1.5.6`). Entry point:
+A minimal LiveKit voice agent (`livekit-agents==1.6.4`). Entry point:
 `main.py` -> `src/agent.py`.
 
 - `src/agent.py`: `AgentServer`, prewarm (Silero VAD), and the `@server.rtc_session`
