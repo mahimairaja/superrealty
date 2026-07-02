@@ -19,7 +19,7 @@ from src.core.config import config
 from src.core.events import register_event_handlers
 from src.runtime.observers import post_call_log
 from src.services.api_client import BackendApiClient
-from src.utils.room import identify, parse_tenant_id
+from src.utils.room import identify, parse_tenant_id, tenant_from_metadata
 
 logger = logging.getLogger("agent")
 
@@ -53,8 +53,11 @@ async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
 
     # Recover the realtor (tenant) this call belongs to from the backend-minted room name
-    # (t_{tenant}_{random}). Every memory read/write is then scoped to this realtor.
-    tenant_id = parse_tenant_id(ctx.room.name)
+    # (t_{tenant}_{random}). SIP callers reach a provider-named room instead, so fall back to
+    # the tenant passed as job metadata by the SIP dispatch rule. Memory is then scoped to it.
+    tenant_id = parse_tenant_id(ctx.room.name) or tenant_from_metadata(
+        getattr(ctx.job, "metadata", None)
+    )
     if tenant_id:
         ctx.log_context_fields["tenant"] = tenant_id
     else:

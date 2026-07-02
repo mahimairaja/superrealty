@@ -5,7 +5,13 @@ from types import SimpleNamespace
 import pytest
 from livekit import rtc
 
-from src.utils.room import Caller, identify, parse_room_metadata, parse_tenant_id
+from src.utils.room import (
+    Caller,
+    identify,
+    parse_room_metadata,
+    parse_tenant_id,
+    tenant_from_metadata,
+)
 
 
 def _participant(
@@ -62,3 +68,16 @@ def test_parse_tenant_id_round_trips_org_with_underscores():
 )
 def test_parse_tenant_id_rejects_non_tenant_rooms(room):
     assert parse_tenant_id(room) is None
+
+
+def test_tenant_from_metadata_reads_tenant_id():
+    # SIP dispatch passes the tenant as job metadata since the room name can't carry it.
+    assert tenant_from_metadata('{"tenant_id": "org_abc"}') == "org_abc"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [None, "", "not json", "{}", '{"tenant_id": ""}', '{"tenant_id": 5}', "[1,2]"],
+)
+def test_tenant_from_metadata_missing_or_bad(raw):
+    assert tenant_from_metadata(raw) is None

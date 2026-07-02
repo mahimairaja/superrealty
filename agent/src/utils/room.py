@@ -44,6 +44,16 @@ def parse_room_metadata(raw: str | None) -> dict:
         return {}
 
 
+def tenant_from_metadata(raw: str | None) -> str | None:
+    """Recover the tenant_id from dispatch/job metadata JSON ({"tenant_id": "..."}), or None.
+
+    SIP callers reach a provider-generated room whose name does not carry the tenant, so the SIP
+    dispatch rule passes it as agent job metadata instead (roomConfig.agents[].metadata).
+    """
+    value = parse_room_metadata(raw).get("tenant_id")
+    return value if isinstance(value, str) and value else None
+
+
 def identify(participant: rtc.Participant) -> Caller:
     """Classify a participant as a web or SIP caller.
 

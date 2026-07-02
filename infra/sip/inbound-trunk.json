@@ -1,0 +1,7 @@
+{
+  "trunk": {
+    "name": "RealtyRecall inbound (Telnyx)",
+    "numbers": ["+15195550142"],
+    "krispEnabled": true
+  }
+}
