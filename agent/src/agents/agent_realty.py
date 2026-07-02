@@ -183,6 +183,9 @@ class RealtyAgent(Agent):
         if not data.get("found"):
             return None
         summary = str(data.get("summary") or "").strip()
+        nearby = str(data.get("nearby") or "").strip()
+        if nearby:
+            summary = f"{summary} Also worth mentioning: {nearby}".strip()
         return summary[:600] or None
 
     async def on_enter(self) -> None:

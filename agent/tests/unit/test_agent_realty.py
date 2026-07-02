@@ -212,3 +212,16 @@ async def test_recall_degrades_when_backend_errors():
 
     agent = RealtyAgent(api=_Boom(), caller_phone="+15195550142")
     assert await agent._recall_returning_buyer() is None  # never raises into the call
+
+
+async def test_recall_appends_nearby_suggestion():
+    api = _FakeApi(
+        buyer={
+            "found": True,
+            "summary": "Dana wants a 3-bed in Sarnia",
+            "nearby": "A new one on Cathcart just came up two streets over.",
+        }
+    )
+    agent = RealtyAgent(api=api, caller_phone="+15195550142")
+    recalled = await agent._recall_returning_buyer()
+    assert recalled and "Cathcart" in recalled

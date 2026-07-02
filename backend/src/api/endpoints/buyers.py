@@ -41,7 +41,10 @@ async def get_buyer(
 ) -> BuyerRecall:
     # On call start the assistant looks up the caller by phone within this realtor's tenant.
     # Always 200; found=false means a new (or forgotten) buyer, so the agent opens fresh.
-    result = await get_memory_store().get_buyer(tenant_id, phone)
+    store = get_memory_store()
+    result = await store.get_buyer(tenant_id, phone)
+    if result.get("found") and result.get("summary"):
+        result["nearby"] = await store.recall_nearby(tenant_id, str(result["summary"]))
     return BuyerRecall(**result)
 
 

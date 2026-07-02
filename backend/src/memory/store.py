@@ -440,6 +440,31 @@ class MemoryStore:
             return {"found": False, "phone": phone}
         return {"found": True, "phone": phone, "summary": str(results[0])}
 
+    async def recall_nearby(self, tenant_id: str, summary: str) -> str | None:
+        """A bounded multi-hop suggestion for a returning buyer: a newer listing near what they
+        liked (buyer -> liked listing -> neighbourhood -> nearby newer listing). Best-effort:
+        returns None on any error so it never blocks or breaks a call.
+        """
+        await ensure_cognee()
+        query = (
+            "This returning buyer previously liked a home described here: "
+            f"{summary}. Is there a different, newer connected listing in the same area or "
+            "neighbourhood they have not seen yet? If so, describe it in one short sentence. "
+            "If not, answer with nothing."
+        )
+        try:
+            results = await cognee.search(
+                query_text=query,
+                query_type=SearchType.GRAPH_COMPLETION,
+                node_type=NodeSet,
+                node_name=[tenant_tag(tenant_id)],
+                top_k=3,
+            )
+        except Exception:  # noqa: BLE001  (best-effort enrichment; never break the call)
+            return None
+        text = str(results[0]).strip() if results else ""
+        return text or None
+
     async def add_showing(
         self,
         *,
