@@ -8,6 +8,7 @@ httpx.MockTransport (no network).
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -84,9 +85,10 @@ class BackendApiClient:
 
     async def get_buyer(self, phone: str) -> dict[str, Any]:
         """Recall a returning buyer by phone (name, prior criteria, homes discussed). Returns
-        {"found": bool, ...}; found is False for a new or forgotten caller.
+        {"found": bool, ...}; found is False for a new or forgotten caller. The phone is
+        URL-encoded so it can never traverse or inject the request path.
         """
-        return await self._get(f"/api/v1/buyers/{phone}")
+        return await self._get(f"/api/v1/buyers/{quote(phone, safe='')}")
 
     async def check_availability(self) -> dict[str, Any]:
         """Open showing times on the realtor's calendar."""
@@ -100,7 +102,8 @@ class BackendApiClient:
         """Forget a buyer on request (removes their Cognee dataset)."""
         async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
             resp = await client.delete(
-                f"{self._base_url}/api/v1/buyers/{phone}", headers=self._headers()
+                f"{self._base_url}/api/v1/buyers/{quote(phone, safe='')}",
+                headers=self._headers(),
             )
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()

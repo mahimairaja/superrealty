@@ -139,12 +139,21 @@ async def test_recall_returning_buyer_and_opener():
 
 async def test_recall_is_once_per_call():
     api = _FakeApi(buyer={"found": True, "summary": "x"})
-    agent = RealtyAgent(api=api, caller_phone="+1")
+    agent = RealtyAgent(api=api, caller_phone="+15195550142")
     assert await agent._recall_returning_buyer() is not None
     assert (
         await agent._recall_returning_buyer() is None
     )  # already recalled; no second lookup
-    assert api.get_buyer_calls == ["+1"]
+    assert api.get_buyer_calls == ["+15195550142"]
+
+
+async def test_recall_rejects_a_non_phone():
+    # A garbage/path-traversal value from an LLM arg never reaches the backend.
+    api = _FakeApi(buyer={"found": True, "summary": "x"})
+    for bad in ("../admin", "abc", "12", "+1"):
+        agent = RealtyAgent(api=api, caller_phone=bad)
+        assert await agent._recall_returning_buyer() is None
+    assert api.get_buyer_calls == []
 
 
 async def test_no_recall_without_a_phone():
@@ -159,5 +168,5 @@ async def test_recall_degrades_when_backend_errors():
         async def get_buyer(self, phone: str) -> dict:
             raise RuntimeError("backend down")
 
-    agent = RealtyAgent(api=_Boom(), caller_phone="+1")
+    agent = RealtyAgent(api=_Boom(), caller_phone="+15195550142")
     assert await agent._recall_returning_buyer() is None  # never raises into the call
