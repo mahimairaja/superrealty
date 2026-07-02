@@ -73,7 +73,7 @@ LiveKit; no public domain needed). Set env:
 | `OPENAI_API_KEY` `DEEPGRAM_API_KEY` `CARTESIA_API_KEY` | speech + LLM |
 | `AGENT_NAME` | `realty` |
 | `AGENT_MAX_CALL_SECONDS` | `600` |
-| `BACKEND_URL` | the backend public URL + `/api/v1` |
+| `BACKEND_URL` | the backend public URL, e.g. `https://<backend-domain>` (a trailing `/api/v1` is tolerated and stripped) |
 | `SENTRY_DSN` | optional |
 
 ## 4. Frontend (Vercel)

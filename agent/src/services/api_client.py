@@ -22,7 +22,13 @@ class BackendApiClient:
         transport: httpx.AsyncBaseTransport | None = None,
         tenant_id: str | None = None,
     ) -> None:
-        self._base_url = (base_url or config.BACKEND_URL).rstrip("/")
+        # Every client path already carries /api/v1, so strip it if the configured base URL
+        # includes it too. A BACKEND_URL set either way ("https://host" or
+        # "https://host/api/v1") then works instead of 404ing on /api/v1/api/v1/... paths.
+        base = (base_url or config.BACKEND_URL).rstrip("/")
+        if base.endswith("/api/v1"):
+            base = base[: -len("/api/v1")]
+        self._base_url = base
         self._transport = transport
         # The tenant this call belongs to (derived from the room name) and the shared agent
         # secret. Sent on every backend call: the tenant-scoped endpoints (recall, buyers,

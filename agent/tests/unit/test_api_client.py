@@ -89,6 +89,22 @@ async def test_get_realtor_fetches_persona():
     assert persona["tone"] == "warm, local"
 
 
+async def test_base_url_with_api_v1_suffix_does_not_double_the_path():
+    # BACKEND_URL deployed as "https://host/api/v1" must still hit /api/v1/recall once,
+    # not /api/v1/api/v1/recall (the misconfiguration that 404ed every agent call in prod).
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"answer": "ok", "match_count": 0})
+
+    client = BackendApiClient(
+        base_url="http://test/api/v1", transport=httpx.MockTransport(handler)
+    )
+    await client.recall("Riley", "3 bed")
+    assert seen["path"] == "/api/v1/recall"
+
+
 async def test_get_buyer_url_encodes_the_phone():
     seen: dict = {}
 
