@@ -47,20 +47,20 @@ RealtyRecall gives every solo agent a receptionist that has actually read their 
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/screenshots/onboard.png" alt="Connect listings: import, review, and go live" /></td>
+    <td width="50%"><img src="assets/screenshots/onboard.png" alt="Paste one URL: listings and your persona, staged for review" /></td>
     <td width="50%"><img src="assets/screenshots/call.png" alt="Voice-first call screen" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Connect your listings in a minute: import, review, go live</sub></td>
+    <td align="center"><sub>Paste one URL: every listing plus your persona, extracted from your own site and staged for review</sub></td>
     <td align="center"><sub>Answer every call in your name, voice first</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/screenshots/pipeline.png" alt="Pipeline of bookings and calls hydrated from memory" /></td>
-    <td width="50%"><img src="assets/screenshots/hub.png" alt="RealtyRecall hub" /></td>
+    <td width="50%"><img src="assets/screenshots/settings.png" alt="Settings: lead notifications and the embed snippet" /></td>
+    <td width="50%"><img src="assets/screenshots/hub.png" alt="Overview dashboard with the assistant persona" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Every booking and call, hydrated live from Cognee memory</sub></td>
-    <td align="center"><sub>One hub: take calls, connect listings, watch the pipeline</sub></td>
+    <td align="center"><sub>Lead texts to your own number, and a one-line embed for your website</sub></td>
+    <td align="center"><sub>One dashboard: your assistant's persona, call link, listings, and pipeline</sub></td>
   </tr>
 </table>
 
