@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.core.clerk import CurrentTenant
 from src.core.tenant import AgentTenant
+from src.memory.graph_service import get_graph_service
 from src.memory.store import get_memory_store
 from src.schemas.listing_schemas import ListingDraft, ListingPatch, LiveListing
 from src.services.onboard_service import StagedStore
@@ -31,6 +32,17 @@ async def listing_catalog(tenant_id: AgentTenant) -> list[dict]:
     # assistant fetches the structured catalog to push house cards to the caller's screen
     # during a call. Identical data, different caller/auth than the console.
     return await get_memory_store().list_listings(tenant_id)
+
+
+@router.get("/{code}/matches")
+async def listing_matches(code: str, tenant_id: CurrentTenant) -> dict:
+    # Which remembered buyers want this specific connected listing (graph match). Powers the
+    # "N buyers want this" card and the proactive-notify story.
+    listings = await get_memory_store().list_listings(tenant_id)
+    listing = next((h for h in listings if str(h.get("code")) == code), None)
+    if listing is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="listing not found")
+    return await get_graph_service().match_report(tenant_id, listing)
 
 
 @router.patch("/{draft_id}", response_model=ListingDraft)
