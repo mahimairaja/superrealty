@@ -14,11 +14,14 @@ class _FakeApi:
         answer: str = "A matching home",
         raises: bool = False,
         catalog: list[dict] | None = None,
+        buyer: dict | None = None,
     ) -> None:
         self.answer = answer
         self.raises = raises
         self.catalog = catalog or []
+        self.buyer = buyer or {"found": False}
         self.calls: list[tuple[str, str]] = []
+        self.get_buyer_calls: list[str] = []
 
     async def recall(self, realtor: str, criteria: str) -> str:
         self.calls.append((realtor, criteria))
@@ -28,6 +31,13 @@ class _FakeApi:
 
     async def list_listings(self) -> list[dict]:
         return self.catalog
+
+    async def capture_lead(self, buyer: dict) -> dict:
+        return {"ok": True}
+
+    async def get_buyer(self, phone: str) -> dict:
+        self.get_buyer_calls.append(phone)
+        return self.buyer
 
 
 def test_instructions_cover_disclosure_and_qualification():
@@ -106,3 +116,48 @@ def test_name_only_persona_opener():
 def test_no_persona_falls_back_to_generic_opener():
     agent = RealtyAgent(realtor="Riley", api=_FakeApi())
     assert "the realtor's assistant" in agent._opener()
+
+
+async def test_sip_caller_phone_seeds_last_phone():
+    # SIP caller ID is known at connect, so it is available for recall/close before any tool call.
+    agent = RealtyAgent(api=_FakeApi(), caller_phone="+15195550142")
+    assert agent.last_phone == "+15195550142"
+
+
+async def test_recall_returning_buyer_and_opener():
+    api = _FakeApi(
+        buyer={"found": True, "summary": "Dana wants a 3-bed in Sarnia under 470k"}
+    )
+    agent = RealtyAgent(api=api, caller_phone="+15195550142")
+    recalled = await agent._recall_returning_buyer()
+    assert recalled and "Dana" in recalled
+    assert api.get_buyer_calls == ["+15195550142"]
+    opener = agent._opener(recalled)
+    assert "returning caller" in opener.lower()
+    assert "Dana" in opener
+
+
+async def test_recall_is_once_per_call():
+    api = _FakeApi(buyer={"found": True, "summary": "x"})
+    agent = RealtyAgent(api=api, caller_phone="+1")
+    assert await agent._recall_returning_buyer() is not None
+    assert (
+        await agent._recall_returning_buyer() is None
+    )  # already recalled; no second lookup
+    assert api.get_buyer_calls == ["+1"]
+
+
+async def test_no_recall_without_a_phone():
+    api = _FakeApi(buyer={"found": True, "summary": "x"})
+    agent = RealtyAgent(api=api)  # web: no caller id yet
+    assert await agent._recall_returning_buyer() is None
+    assert api.get_buyer_calls == []
+
+
+async def test_recall_degrades_when_backend_errors():
+    class _Boom(_FakeApi):
+        async def get_buyer(self, phone: str) -> dict:
+            raise RuntimeError("backend down")
+
+    agent = RealtyAgent(api=_Boom(), caller_phone="+1")
+    assert await agent._recall_returning_buyer() is None  # never raises into the call

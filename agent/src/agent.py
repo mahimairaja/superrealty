@@ -65,11 +65,14 @@ async def entrypoint(ctx: JobContext) -> None:
             "room %s has no tenant; memory tools will be unavailable", ctx.room.name
         )
 
-    # Identify the caller. Web and SIP differ only here; the conversation is
-    # identical. Skipped in console mode (local mic, no remote participant).
+    # Identify the caller. Web and SIP differ only here; the conversation is identical.
+    # Skipped in console mode (local mic, no remote participant). A SIP caller's number is
+    # known now (caller ID), so we hand it to the agent to recognize a returning buyer.
+    caller_phone: str | None = None
     if not CONSOLE_MODE:
         participant = await ctx.wait_for_participant()
         caller = identify(participant)
+        caller_phone = caller.phone
         logger.info(
             "participant joined: kind=%s identity=%s", caller.kind, caller.identity
         )
@@ -95,7 +98,9 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception as exc:  # noqa: BLE001  (persona is best-effort)
             logger.warning("realtor persona fetch failed: %s", exc)
 
-    realty_agent = RealtyAgent(tenant_id=tenant_id, api=api, persona=persona)
+    realty_agent = RealtyAgent(
+        tenant_id=tenant_id, api=api, persona=persona, caller_phone=caller_phone
+    )
     log_usage_summary = register_event_handlers(session)
 
     async def _on_shutdown() -> None:

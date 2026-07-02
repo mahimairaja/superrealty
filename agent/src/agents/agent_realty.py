@@ -65,6 +65,7 @@ class RealtyAgent(Agent):
         api: BackendApiClient | None = None,
         tenant_id: str | None = None,
         persona: dict[str, Any] | None = None,
+        caller_phone: str | None = None,
     ) -> None:
         # The realtor's inferred persona (name/agency/area/tagline/tone) shapes both the system
         # prompt and the opener, so the assistant answers in their name and voice.
@@ -79,8 +80,11 @@ class RealtyAgent(Agent):
         self._ending = False
         # One idempotency key per call, reused on a booking retry.
         self._booking_key: str | None = None
-        # The buyer phone captured this call, for the call-log link on close.
-        self.last_phone: str | None = None
+        # The buyer phone for this call: known at connect for SIP (caller ID), else learned when
+        # a web caller states it. Used for the call-log link AND to recall a returning buyer.
+        self.last_phone: str | None = caller_phone
+        # Whether we've already pulled this caller's remembered profile this call (recall once).
+        self._recalled = False
         # The structured listing catalog, fetched once and reused to push house cards.
         self._catalog: list[dict[str, Any]] | None = None
         # Detached UI-push tasks (held so they are not garbage-collected mid-flight).
@@ -94,26 +98,58 @@ class RealtyAgent(Agent):
         self._bg.add(task)
         task.add_done_callback(self._bg.discard)
 
-    def _opener(self) -> str:
-        """Greeting guidance, personalized to the realtor when we know who they are."""
+    def _who(self) -> str:
         name = _clean(self._persona.get("name"))
         agency = _clean(self._persona.get("agency"))
         if name and agency:
-            who = f"{name}'s assistant at {agency}"
-        elif name:
-            who = f"{name}'s assistant"
-        else:
-            who = "the realtor's assistant"
+            return f"{name}'s assistant at {agency}"
+        if name:
+            return f"{name}'s assistant"
+        return "the realtor's assistant"
+
+    def _opener(self, recalled: str | None = None) -> str:
+        """Greeting guidance: personalized to the realtor, and to a returning buyer when we
+        remember them (so the assistant welcomes them back instead of starting from scratch)."""
+        who = self._who()
+        if recalled:
+            return (
+                f"You are {who}. This is a returning caller we already remember. Greet them "
+                "back warmly by name in one short sentence, briefly note what they were looking "
+                "for, and ask how you can help today. Do not re-ask details we already have. "
+                f"What we remember: {recalled}"
+            )
         return (
             f"Greet the buyer warmly in one short sentence as {who} and ask what kind of "
             "home they are looking for."
         )
 
+    async def _recall_returning_buyer(self) -> str | None:
+        """Best-effort: pull what we remember about this caller (by phone) so the assistant can
+        welcome them back and reuse prior criteria. Recalls once per call; None if new/unknown.
+        """
+        if self._recalled or not self.last_phone:
+            return None
+        self._recalled = True
+        try:
+            data = await self._api.get_buyer(self.last_phone)
+        except Exception as exc:  # noqa: BLE001  (recall is best-effort; never break the call)
+            logger.warning("buyer recall failed: %s", exc)
+            return None
+        if not data.get("found"):
+            return None
+        summary = str(data.get("summary") or "").strip()
+        return summary[:600] or None
+
     async def on_enter(self) -> None:
         # Cap call length so a stuck or abusive session cannot run up STT/LLM/TTS cost.
         self._max_call_task = asyncio.create_task(self._hang_up_max_duration())
+        # A SIP caller's number is known at connect, so we can recognize a returning buyer
+        # before the first word. (Web callers are recalled once they give their number below.)
+        recalled = await self._recall_returning_buyer()
         # The PIPEDA recording disclosure is always the first thing said.
-        self.session.generate_reply(instructions=_RECORDING_NOTICE + self._opener())
+        self.session.generate_reply(
+            instructions=_RECORDING_NOTICE + self._opener(recalled)
+        )
 
     async def _hang_up_max_duration(self) -> None:
         try:
@@ -258,6 +294,15 @@ class RealtyAgent(Agent):
                 "lead", {"name": name, "phone": phone, "criteria": criteria or None}
             )
         )
+        # A web caller has no caller ID, so this is the first moment we can recognize a
+        # returning buyer. Recall once and, if we know them, tell the model to welcome them back.
+        recalled = await self._recall_returning_buyer()
+        if recalled:
+            return (
+                "This is a returning buyer we remember. Welcome them back by name and reuse "
+                "what we already know instead of re-asking it. What we remember: "
+                + recalled
+            )
         return f"Thanks{', ' + name if name else ''}. I have your details."
 
     @function_tool

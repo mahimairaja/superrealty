@@ -82,6 +82,12 @@ class BackendApiClient:
         """Upsert a buyer keyed by phone."""
         return await self._post("/api/v1/buyers", buyer)
 
+    async def get_buyer(self, phone: str) -> dict[str, Any]:
+        """Recall a returning buyer by phone (name, prior criteria, homes discussed). Returns
+        {"found": bool, ...}; found is False for a new or forgotten caller.
+        """
+        return await self._get(f"/api/v1/buyers/{phone}")
+
     async def check_availability(self) -> dict[str, Any]:
         """Open showing times on the realtor's calendar."""
         return await self._get("/api/v1/availability")
