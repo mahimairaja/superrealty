@@ -84,7 +84,10 @@ class GraphService:
     )
 
     async def insights(self, tenant_id: str) -> list[dict[str, Any]]:
-        await ensure_cognee()
+        try:
+            await ensure_cognee()
+        except Exception:  # noqa: BLE001  (insights are best-effort; never raise)
+            return []
         cards: list[dict[str, Any]] = []
         for title, prompt in self._INSIGHT_PROMPTS:
             try:
