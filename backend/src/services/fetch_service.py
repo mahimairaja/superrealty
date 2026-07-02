@@ -272,9 +272,30 @@ async def _render_spa(seed_url: str, client: httpx.AsyncClient) -> list[CrawledP
     return [CrawledPage(seed_url, await fetch_readable(seed_url), is_markdown=True)]
 
 
+async def _fetch_page(
+    client: httpx.AsyncClient, url: str, reader_budget: list[int]
+) -> CrawledPage | None:
+    """Fetch one page. If it comes back a client-rendered JS shell (empty DOM) and there is
+    reader budget left, re-render it through the reader as markdown, so client-rendered listing
+    sub-pages aren't lost the way the seed already isn't. reader_budget is a shared [int] so the
+    escalations stay bounded across the crawl (a soft cap; a couple extra is harmless)."""
+    try:
+        html = await fetch_html(url, client)
+    except FetchError:
+        return None
+    if looks_like_js_shell(html) and reader_budget[0] > 0:
+        reader_budget[0] -= 1
+        try:
+            return CrawledPage(url, await fetch_readable(url), is_markdown=True)
+        except (FetchError, httpx.HTTPError):
+            return CrawledPage(url, html, is_markdown=False)  # keep the (empty) HTML
+    return CrawledPage(url, html, is_markdown=False)
+
+
 async def crawl(seed_url: str, max_pages: int = _MAX_PAGES) -> list[CrawledPage]:
     """Fetch the seed plus a bounded set of same-host pages. If the seed is a JS shell, render
-    it (and its sitemap sub-pages) through the reader since the DOM is client-generated.
+    it (and its sitemap sub-pages) through the reader since the DOM is client-generated; a
+    discovered sub-page that is itself a shell is escalated to the reader too (bounded).
     """
     validate_url(seed_url)
     async with _new_client(timeout=_TIMEOUT, follow_redirects=False) as client:
@@ -295,15 +316,11 @@ async def crawl(seed_url: str, max_pages: int = _MAX_PAGES) -> list[CrawledPage]
 
         pages: list[CrawledPage] = [CrawledPage(seed_url, seed_html, is_markdown=False)]
         semaphore = asyncio.Semaphore(_CONCURRENCY)
+        reader_budget = [_MAX_SPA_PAGES]  # shared cap on per-page reader escalations
 
         async def _one(url: str) -> CrawledPage | None:
             async with semaphore:
-                try:
-                    return CrawledPage(
-                        url, await fetch_html(url, client), is_markdown=False
-                    )
-                except FetchError:
-                    return None
+                return await _fetch_page(client, url, reader_budget)
 
         rest = await asyncio.gather(*(_one(u) for u in candidates[1:]))
         pages.extend(p for p in rest if p is not None)

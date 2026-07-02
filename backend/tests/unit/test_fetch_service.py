@@ -136,3 +136,54 @@ async def test_fetch_html_returns_small_body():
     finally:
         await client.aclose()
     assert "hello world" in out
+
+
+async def test_fetch_page_escalates_a_js_shell_to_the_reader(monkeypatch):
+    async def fake_html(url, client=None):
+        return (
+            "<html><body><div id='root'></div></body></html>"  # a client-rendered shell
+        )
+
+    async def fake_readable(url):
+        return "# 88 Maple Ridge Drive $459,000 3 bed"
+
+    monkeypatch.setattr(fetch_service, "fetch_html", fake_html)
+    monkeypatch.setattr(fetch_service, "fetch_readable", fake_readable)
+    page = await fetch_service._fetch_page(None, "https://x.example/p", [1])
+    assert page is not None
+    assert page.is_markdown is True
+    assert "88 Maple" in page.content
+
+
+async def test_fetch_page_keeps_html_when_reader_budget_is_spent(monkeypatch):
+    async def fake_html(url, client=None):
+        return "<html><body></body></html>"  # shell, but no budget to escalate
+
+    called = {"reader": 0}
+
+    async def fake_readable(url):
+        called["reader"] += 1
+        return "x"
+
+    monkeypatch.setattr(fetch_service, "fetch_html", fake_html)
+    monkeypatch.setattr(fetch_service, "fetch_readable", fake_readable)
+    page = await fetch_service._fetch_page(None, "https://x.example/p", [0])
+    assert page is not None and page.is_markdown is False
+    assert called["reader"] == 0
+
+
+async def test_fetch_page_does_not_escalate_a_real_page(monkeypatch):
+    async def fake_html(url, client=None):
+        return "<html><body>" + ("home " * 200) + "</body></html>"  # plenty of text
+
+    called = {"reader": 0}
+
+    async def fake_readable(url):
+        called["reader"] += 1
+        return "x"
+
+    monkeypatch.setattr(fetch_service, "fetch_html", fake_html)
+    monkeypatch.setattr(fetch_service, "fetch_readable", fake_readable)
+    page = await fetch_service._fetch_page(None, "https://x.example/p", [5])
+    assert page is not None and page.is_markdown is False
+    assert called["reader"] == 0  # a real page is never sent to the reader
