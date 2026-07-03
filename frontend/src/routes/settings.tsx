@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useOrganization } from "@clerk/clerk-react";
 import {
+  ArrowRight,
   Check,
   Code2,
   Copy,
@@ -25,15 +27,18 @@ export default function Settings() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetStatus, setResetStatus] = useState("");
+  const [resetDone, setResetDone] = useState(false);
 
   async function handleReset() {
     setResetting(true);
     setResetStatus("");
+    setResetDone(false);
     try {
       const { removed } = await resetMemory();
       setResetStatus(
-        `Cleared ${removed} memory node${removed === 1 ? "" : "s"}. Reconnect your listings to start fresh.`,
+        `Cleared ${removed} memory node${removed === 1 ? "" : "s"}. You're back to a blank slate.`,
       );
+      setResetDone(true);
     } catch {
       setResetStatus("Could not reset just now, please try again.");
     } finally {
@@ -221,6 +226,13 @@ export default function Settings() {
           </div>
           {resetStatus && (
             <p className="text-sm text-muted-foreground">{resetStatus}</p>
+          )}
+          {resetDone && (
+            <Button asChild size="sm" className="w-fit">
+              <Link to="/listings">
+                Start onboarding <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           )}
         </CardContent>
       </Card>
