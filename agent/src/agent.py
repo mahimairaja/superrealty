@@ -11,7 +11,7 @@ from livekit.agents import (
     TurnHandlingOptions,
     cli,
 )
-from livekit.plugins import deepgram, google, openai, silero
+from livekit.plugins import deepgram, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from src.agents.agent_realty import RealtyAgent
@@ -83,15 +83,15 @@ async def entrypoint(ctx: JobContext) -> None:
     session: AgentSession = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=openai.LLM(model="gpt-4.1-mini"),
-        # Gemini TTS (reads GOOGLE_API_KEY from the environment). Temporarily on the `pro` model
-        # because the `flash` model's free daily quota is exhausted and billing has not yet lifted
-        # it; `pro` has a separate quota. Revert to gemini-2.5-flash-preview-tts (faster) once the
-        # flash quota is available. Swap voice_name for another Gemini voice; instructions set the
-        # pace, since GeminiTTS has no numeric speaking-rate parameter.
-        tts=google.beta.GeminiTTS(
-            model="gemini-2.5-pro-preview-tts",
-            voice_name="Zephyr",
-            instructions="Speak quickly and energetically, with an upbeat, friendly, confident tone.",
+        # OpenAI TTS (reads OPENAI_API_KEY, the same funded key the LLM uses). We moved off the
+        # Gemini TTS free tier because every Gemini TTS model has a tiny per-project daily cap
+        # (100/day flash, 50/day pro) that we kept exhausting mid-demo. gpt-4o-mini-tts is fast
+        # and its `instructions` set the delivery. Swap voice for another OpenAI voice (nova,
+        # coral, sage, alloy, ...).
+        tts=openai.TTS(
+            model="gpt-4o-mini-tts",
+            voice="shimmer",
+            instructions="Speak quickly and energetically, with a warm, upbeat, friendly tone.",
         ),
         vad=ctx.proc.userdata["vad"],
         turn_handling=TurnHandlingOptions(
