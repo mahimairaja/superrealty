@@ -11,6 +11,11 @@ export const tokenSource = TokenSource.endpoint(TOKEN_ENDPOINT);
 // Must match the agent worker's agent_name (AGENT_NAME in the agent package).
 export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "realty";
 
+export type TenantTokenSource = {
+  source: ReturnType<typeof TokenSource.custom>;
+  setBuyerPhone: (phone: string) => void;
+};
+
 /**
  * A token source for a buyer calling a specific realtor. It posts the realtor's tenant slug
  * (their Clerk org id) so the backend names the room t_{tenant}_{random}; the agent recovers
@@ -19,52 +24,70 @@ export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "realty";
  * Built on TokenSource.custom so we can include the tenant in the request body (the standard
  * endpoint source does not allow extra fields). Agent dispatch is packaged into room_config,
  * exactly as the endpoint source does it.
+ *
+ * Returns the source plus `setBuyerPhone`: the buyer's number is held in this closure (not in
+ * React state, so it never trips render-purity rules) and, if set before start, is sent as the
+ * `buyer.phone` participant attribute so the agent can recognize a returning caller from the
+ * first word, like SIP caller ID.
  */
-export function tokenSourceForTenant(tenant: string) {
-  return TokenSource.custom(async (options): Promise<TokenSourceResponseObject> => {
-    // Forward every option the backend RoomTokenRequest supports. roomName is intentionally
-    // omitted: the tenant flow names the room server-side (t_{tenant}_{random}), so a client
-    // room_name is ignored. agentMetadata is the agent dispatch's `metadata` proto field.
-    const body: Record<string, unknown> = { tenant };
-    if (options.agentName || options.agentMetadata) {
-      const agent: Record<string, unknown> = {};
-      if (options.agentName) agent.agent_name = options.agentName;
-      if (options.agentMetadata) agent.metadata = options.agentMetadata;
-      body.room_config = { agents: [agent] };
-    }
-    if (options.participantName) body.participant_name = options.participantName;
-    if (options.participantIdentity) {
-      body.participant_identity = options.participantIdentity;
-    }
-    if (options.participantMetadata) {
-      body.participant_metadata = options.participantMetadata;
-    }
-    // Guard against a hung backend: without a timeout, LiveKit session start() could stall
-    // indefinitely waiting on this token.
-    let res: Response;
-    try {
-      res = await fetch(TOKEN_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(10000),
-      });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "TimeoutError") {
-        throw new Error("token request timed out after 10s", { cause: err });
+export function tokenSourceForTenant(tenant: string): TenantTokenSource {
+  let buyerPhone = "";
+  const source = TokenSource.custom(
+    async (options): Promise<TokenSourceResponseObject> => {
+      // Forward every option the backend RoomTokenRequest supports. roomName is intentionally
+      // omitted: the tenant flow names the room server-side (t_{tenant}_{random}), so a client
+      // room_name is ignored. agentMetadata is the agent dispatch's `metadata` proto field.
+      const body: Record<string, unknown> = { tenant };
+      const phone = buyerPhone.replace(/\D/g, "");
+      if (phone.length >= 7) {
+        body.participant_attributes = { "buyer.phone": phone };
       }
-      throw err;
-    }
-    if (!res.ok) {
-      throw new Error(`token request failed: ${res.status}`);
-    }
-    const data = (await res.json()) as {
-      server_url: string;
-      participant_token: string;
-    };
-    return {
-      serverUrl: data.server_url,
-      participantToken: data.participant_token,
-    };
-  });
+      if (options.agentName || options.agentMetadata) {
+        const agent: Record<string, unknown> = {};
+        if (options.agentName) agent.agent_name = options.agentName;
+        if (options.agentMetadata) agent.metadata = options.agentMetadata;
+        body.room_config = { agents: [agent] };
+      }
+      if (options.participantName) body.participant_name = options.participantName;
+      if (options.participantIdentity) {
+        body.participant_identity = options.participantIdentity;
+      }
+      if (options.participantMetadata) {
+        body.participant_metadata = options.participantMetadata;
+      }
+      // Guard against a hung backend: without a timeout, LiveKit session start() could stall
+      // indefinitely waiting on this token.
+      let res: Response;
+      try {
+        res = await fetch(TOKEN_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "TimeoutError") {
+          throw new Error("token request timed out after 10s", { cause: err });
+        }
+        throw err;
+      }
+      if (!res.ok) {
+        throw new Error(`token request failed: ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        server_url: string;
+        participant_token: string;
+      };
+      return {
+        serverUrl: data.server_url,
+        participantToken: data.participant_token,
+      };
+    },
+  );
+  return {
+    source,
+    setBuyerPhone: (phone: string) => {
+      buyerPhone = phone;
+    },
+  };
 }

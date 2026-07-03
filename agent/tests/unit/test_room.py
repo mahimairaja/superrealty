@@ -45,6 +45,22 @@ def test_identify_web_participant():
     assert caller == Caller(kind="web", identity="web-user", phone=None)
 
 
+def test_identify_web_participant_with_entered_phone():
+    # The call screen asks a web buyer for a number before connecting and sends it as the
+    # buyer.phone attribute, so recall can fire at connect just like SIP caller ID.
+    caller = identify(_participant(attributes={"buyer.phone": "5195550142"}))
+    assert caller.kind == "web"
+    assert caller.phone == "5195550142"
+
+
+def test_identify_sip_phone_wins_over_buyer_attribute():
+    caller = identify(
+        _participant(attributes={"sip.phoneNumber": "+14165550000", "buyer.phone": "x"})
+    )
+    assert caller.kind == "sip"
+    assert caller.phone == "+14165550000"
+
+
 def test_identify_sip_by_attribute():
     caller = identify(_participant(attributes={"sip.phoneNumber": "+14165550000"}))
     assert caller.kind == "sip"

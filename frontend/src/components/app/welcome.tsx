@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
-export function Welcome({ onStart }: { onStart: () => void }) {
+// The buyer enters a number before connecting so the assistant can recognize a returning
+// caller from the first word (a web call has no caller ID). Any digits work: it is only a key
+// for remembering this caller, not verified. Optional, so it never blocks starting the call.
+export function Welcome({ onStart }: { onStart: (phone: string) => void }) {
+  const [phone, setPhone] = useState("");
   return (
     <div className="grid min-h-[calc(100svh-3.5rem)] place-items-center p-6">
       <Card className="w-full max-w-md text-center">
@@ -15,11 +21,33 @@ export function Welcome({ onStart }: { onStart: () => void }) {
               Talk to the assistant
             </h1>
             <p className="text-sm text-muted-foreground">
-              Click start, allow your microphone, and speak. It answers in your
-              name and remembers you the next time you call.
+              Click start, allow your microphone, and speak. It answers in the
+              realtor's name and remembers you the next time you call.
             </p>
           </div>
-          <Button size="lg" className="w-full" onClick={onStart}>
+          <div className="w-full space-y-1.5 text-left">
+            <label htmlFor="buyer-phone" className="text-sm font-medium">
+              Your phone number
+            </label>
+            <Input
+              id="buyer-phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder="e.g. 519 555 0142"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter any 10 digits. We use it to remember you, so next time the
+              assistant greets you by name.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => onStart(phone)}
+          >
             Start conversation
           </Button>
         </CardContent>

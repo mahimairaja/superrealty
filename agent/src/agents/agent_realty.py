@@ -330,6 +330,9 @@ class RealtyAgent(Agent):
         """
         if phone:
             self.last_phone = phone
+        # Fall back to a number the buyer entered before the call (their caller ID / the call
+        # screen's phone prompt), so they are remembered even if they never say it aloud.
+        phone = phone or self.last_phone
         criteria: dict[str, object] = {}
         if area:
             criteria["area"] = area
@@ -392,7 +395,11 @@ class RealtyAgent(Agent):
         """Book an in-person showing for a home at a chosen time. start_utc is one of the
         startUtc values from check_availability.
         """
-        self.last_phone = phone
+        # Fall back to a number entered before the call so a booking still carries a phone even
+        # if the buyer never spoke it (the call screen's phone prompt / SIP caller ID).
+        phone = phone or self.last_phone or ""
+        if phone:
+            self.last_phone = phone
         if self._booking_key is None:
             self._booking_key = str(uuid.uuid4())
         # Booking is a write to the realtor's calendar: don't let a stray word cut it off

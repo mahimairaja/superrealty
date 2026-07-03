@@ -76,16 +76,20 @@ def resolve_tenant_id(
 
 
 def identify(participant: rtc.Participant) -> Caller:
-    """Classify a participant as a web or SIP caller.
+    """Classify a participant as a web or SIP caller, recovering the caller's number.
 
-    SIP participants report a SIP participant kind and carry the originating
-    number in the ``sip.phoneNumber`` attribute.
+    SIP participants report a SIP participant kind and carry the originating number in the
+    ``sip.phoneNumber`` attribute (caller ID). A web caller has no caller ID, but the call
+    screen asks for a number before connecting and sends it as the ``buyer.phone`` participant
+    attribute, so the agent can recognize a returning buyer from the first word either way.
     """
     attrs = participant.attributes or {}
-    phone = attrs.get("sip.phoneNumber") or None
-    is_sip = participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP or bool(phone)
+    sip_phone = attrs.get("sip.phoneNumber") or None
+    is_sip = participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP or bool(
+        sip_phone
+    )
     return Caller(
         kind="sip" if is_sip else "web",
         identity=participant.identity,
-        phone=phone if is_sip else None,
+        phone=sip_phone if is_sip else (attrs.get("buyer.phone") or None),
     )
