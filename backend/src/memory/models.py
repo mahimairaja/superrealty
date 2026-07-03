@@ -52,6 +52,10 @@ class Buyer(DataPoint):
     email: str | None = None
     criteria: dict[str, Any] | None = None
     interested_in: SkipValidation[Any] = None
+    # The neighbourhood the buyer is looking in (from their criteria area). Linking here attaches
+    # the buyer to the same Neighbourhood node the realtor's listings sit in, so the graph is one
+    # connected structure (Buyer -> Neighbourhood <- Listing <- Realtor) rather than loose buyers.
+    wants_in: SkipValidation[Any] = None
     metadata: dict[str, Any] = {"index_fields": ["name", "phone"]}
 
 

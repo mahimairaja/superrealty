@@ -152,6 +152,17 @@ def _tenant_nodeset(tenant_id: str) -> NodeSet:
     return NodeSet(id=uuid5(NAMESPACE_OID, name=name), name=name)
 
 
+def _neighbourhood(tenant_id: str, name: str, city: str | None = None) -> Neighbourhood:
+    """A tenant's neighbourhood as one stable graph node, keyed by tenant + name. Every listing
+    and buyer in the same area references this same node (not a fresh duplicate each time), so
+    they connect into one graph: Buyer -> Neighbourhood <- Listing <- Realtor.
+    """
+    key = f"tenant_{tenant_id}_neighbourhood_{name.strip().lower()}"
+    hood = Neighbourhood(id=uuid5(NAMESPACE_OID, key), name=name, city=city)
+    hood.belongs_to_set = [_tenant_nodeset(tenant_id)]
+    return hood
+
+
 def listings_dataset(tenant_id: str) -> str:
     """The tenant's listings dataset (the buyer text flow and improve are dataset-scoped)."""
     return f"tenant_{tenant_id}_listings"
@@ -238,8 +249,7 @@ class MemoryStore:
             hood = None
             area = item.get("area") or item.get("neighbourhood")
             if area:
-                hood = Neighbourhood(name=area, city=item.get("city"))
-                hood.belongs_to_set = [nodeset]
+                hood = _neighbourhood(tenant_id, str(area), item.get("city"))
                 points.append(hood)
             listing = Listing(
                 code=item["code"],
@@ -400,7 +410,15 @@ class MemoryStore:
             criteria=buyer.get("criteria"),
         )
         node.belongs_to_set = [nodeset]
-        await add_data_points([node])
+        points: list[Any] = [node]
+        # Attach the buyer to the neighbourhood they want (from their criteria area), reusing the
+        # same stable Neighbourhood node the listings sit in, so the buyer joins the graph.
+        area = (buyer.get("criteria") or {}).get("area")
+        if area:
+            hood = _neighbourhood(tenant_id, str(area))
+            node.wants_in = hood
+            points.append(hood)
+        await add_data_points(points)
         # Keep a per-buyer, per-tenant dataset (cognified so it is searchable) so forget_buyer
         # removes exactly this buyer and get_buyer can recall them on a return call. node_set
         # tags the cognified text too, so a shared phone never crosses tenants. Skip this when
