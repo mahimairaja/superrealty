@@ -11,7 +11,7 @@ from livekit.agents import (
     TurnHandlingOptions,
     cli,
 )
-from livekit.plugins import cartesia, deepgram, openai, silero
+from livekit.plugins import deepgram, google, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from src.agents.agent_realty import RealtyAgent
@@ -83,7 +83,13 @@ async def entrypoint(ctx: JobContext) -> None:
     session: AgentSession = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=openai.LLM(model="gpt-4.1-mini"),
-        tts=cartesia.TTS(),
+        # Gemini Flash TTS (reads GOOGLE_API_KEY from the environment). Swap voice_name for a
+        # different Gemini voice (e.g. Kore, Zephyr, Callirrhoe); see the plugin's voice list.
+        tts=google.beta.GeminiTTS(
+            model="gemini-2.5-flash-preview-tts",
+            voice_name="Aoede",
+            instructions="Speak in a warm, friendly, and relaxed tone.",
+        ),
         vad=ctx.proc.userdata["vad"],
         turn_handling=TurnHandlingOptions(
             turn_detection=MultilingualModel(),

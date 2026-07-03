@@ -31,9 +31,9 @@ class Config(BaseSettings):
     SENTRY_DSN: str | None = None
 
     # NOTE: LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET and the provider
-    # keys (OPENAI_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY) are read directly
-    # from the environment by the LiveKit framework and plugins. They are
-    # documented in .env.example; no Config fields are needed for them.
+    # keys (OPENAI_API_KEY, DEEPGRAM_API_KEY, GOOGLE_API_KEY for Gemini TTS) are
+    # read directly from the environment by the LiveKit framework and plugins.
+    # No Config fields are needed for them.
 
 
 @lru_cache
