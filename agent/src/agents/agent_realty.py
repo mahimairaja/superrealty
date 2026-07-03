@@ -420,18 +420,22 @@ class RealtyAgent(Agent):
             logger.warning("book_showing failed: %s", exc)
             return "That did not go through. Can I take your number and have someone follow up?"
         status = result.get("status")
-        self._fire(
-            self._push_event(
-                "booking",
-                {
-                    "propertyCode": property_code,
-                    "address": result.get("address"),
-                    "startUtc": start_utc,
-                    "status": status,
-                    "synced": bool(result.get("synced")),
-                },
+        # Only surface a booking card/text for a real booking or request. A rejected slot (the
+        # time was taken) must NOT push a "booked" card, or the caller's screen would contradict
+        # what the assistant just said. The reply below then offers other times.
+        if status in ("accepted", "pending"):
+            self._fire(
+                self._push_event(
+                    "booking",
+                    {
+                        "propertyCode": property_code,
+                        "address": result.get("address"),
+                        "startUtc": start_utc,
+                        "status": status,
+                        "synced": bool(result.get("synced")),
+                    },
+                )
             )
-        )
         if status == "accepted" and result.get("synced"):
             return "You are all set. The showing is booked."
         if status in ("accepted", "pending"):

@@ -29,9 +29,15 @@ function realtorMessages(lead: LeadData | null, booking: BookingData | null): Bu
     });
   }
   if (booking) {
+    const where = booking.address ? ` at ${booking.address}` : "";
+    const when = formatWhen(booking.startUtc);
+    // Match the assistant and the booking card: only "booked" once the slot is confirmed.
     out.push({
       id: "booking",
-      text: `Showing booked${booking.address ? ` at ${booking.address}` : ""} for ${formatWhen(booking.startUtc)}.`,
+      text:
+        booking.status === "accepted"
+          ? `Showing booked${where} for ${when}.`
+          : `Showing requested${where} for ${when}, awaiting confirmation.`,
     });
   }
   return out;
@@ -40,9 +46,15 @@ function realtorMessages(lead: LeadData | null, booking: BookingData | null): Bu
 function buyerMessages(lead: LeadData | null, booking: BookingData | null): Bubble[] {
   const out: Bubble[] = [];
   if (booking) {
+    const who = lead?.name ? ` ${lead.name}` : "";
+    const where = booking.address ? ` at ${booking.address}` : "";
+    const when = formatWhen(booking.startUtc);
     out.push({
       id: "booking",
-      text: `Hi${lead?.name ? ` ${lead.name}` : ""}, you're confirmed for a showing${booking.address ? ` at ${booking.address}` : ""} on ${formatWhen(booking.startUtc)}. Reply STOP to cancel.`,
+      text:
+        booking.status === "accepted"
+          ? `Hi${who}, you're confirmed for a showing${where} on ${when}. Reply STOP to cancel.`
+          : `Hi${who}, we've requested a showing${where} for ${when} and will confirm shortly.`,
     });
   }
   return out;
