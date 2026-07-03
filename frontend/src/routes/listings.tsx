@@ -181,6 +181,10 @@ export default function Listings() {
 
   return (
     <div className="flex flex-col gap-6">
+      <p className="text-sm text-muted-foreground">
+        The homes your assistant knows. It only ever recommends these, grounded in your
+        connected catalog.
+      </p>
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold tracking-tight">

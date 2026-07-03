@@ -56,6 +56,9 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col gap-6">
+      <p className="text-sm text-muted-foreground">
+        Your agency details, where lead texts go, and how to embed the assistant on your site.
+      </p>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Agency</CardTitle>

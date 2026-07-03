@@ -42,8 +42,8 @@ export default function Buyers() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Everyone your assistant has remembered across calls, scoped to your
-        agency.
+        Everyone your assistant remembered across calls. Each is a node in your Cognee graph,
+        scoped to your agency.
       </p>
 
       {loading ? (
