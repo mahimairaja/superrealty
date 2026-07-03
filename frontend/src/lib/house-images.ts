@@ -1,4 +1,10 @@
-import type { Listing } from "@/lib/tool-events";
+// Only the fields the photo logic reads, so both a call-screen Listing and a console
+// LiveListing (whose fields are optional) can be passed without a cast.
+type PhotoListing = {
+  code?: string | null;
+  address?: string | null;
+  image_url?: string | null;
+};
 
 // Curated stock house photos, used when a listing has no real image_url yet. Assignment is
 // deterministic by the listing code, so a given home always shows the same photo.
@@ -19,13 +25,13 @@ function hash(text: string): number {
 
 // A stable curated fallback photo for a listing (also used as the <img> onError target when
 // a real image_url fails to load: a scraped URL can be http/hotlink-blocked/404/ad-blocked).
-export function curatedImage(listing: Listing): string {
+export function curatedImage(listing: PhotoListing): string {
   const seed = listing.code ?? listing.address ?? "home";
   return CURATED[hash(seed) % CURATED.length];
 }
 
 // Real photo if the listing has one, else a stable curated fallback.
-export function houseImage(listing: Listing): string {
+export function houseImage(listing: PhotoListing): string {
   return listing.image_url ?? curatedImage(listing);
 }
 

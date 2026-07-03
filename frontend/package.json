@@ -15,6 +15,7 @@
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@clerk/clerk-react": "^5.61.3",
+    "@clerk/themes": "^2.4.57",
     "@fontsource-variable/geist": "^5.2.9",
     "@livekit/components-react": "^2.0.0",
     "@streamdown/cjk": "^1.0.3",

@@ -242,6 +242,16 @@ export async function getGraph(): Promise<MemoryGraphData> {
   return asJSON<MemoryGraphData>(res, "getGraph");
 }
 
+// Wipe the realtor's own memory (listings, buyers, showings) so they can re-onboard fresh.
+// Tenant-scoped on the backend: it only removes this realtor's NodeSet. Returns nodes removed.
+export async function resetMemory(): Promise<{ removed: number }> {
+  const res = await fetch(`${API_BASE}/graph`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  return asJSON<{ removed: number }>(res, "resetMemory");
+}
+
 export interface MatchReport {
   narrative: string;
   buyers: { name: string | null; phone: string | null }[];
