@@ -7,6 +7,7 @@ failure marks the row rejected. On an accepted booking we write a Showing node i
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -15,6 +16,8 @@ from src.memory.store import get_memory_store
 from src.models.booking_model import Booking
 from src.repository import booking_repository
 from src.services import cal_service
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_start(value: str | None) -> datetime | None:
@@ -75,7 +78,10 @@ async def book_showing(payload: dict[str, Any], tenant_id: str) -> dict[str, Any
             property_address=payload.get("address") or "",
             api_key=api_key,
         )
-    except Exception:  # noqa: BLE001  (cal failure -> reject this row, never retry)
+    except Exception as exc:  # noqa: BLE001  (cal failure -> reject this row, never retry)
+        # Log it: a swallowed cal error (e.g. an unknown booking field or an invalid phone)
+        # otherwise looks to the caller like every slot is "taken" with no way to diagnose.
+        logger.warning("cal booking rejected for row %s: %s", row.id, exc)
         updated = await booking_repository.set_result(
             row.id, cal_uid=None, status="rejected", synced=False
         )

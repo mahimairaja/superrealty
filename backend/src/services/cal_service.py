@@ -8,6 +8,7 @@ transport makes the client testable with httpx.MockTransport (no network, no rea
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -18,6 +19,23 @@ CAL_BASE_URL = "https://api.cal.com/v2"
 # Version-pinned; omitting these silently routes to an older, incompatible handler.
 CAL_API_VERSION_BOOKINGS = "2024-08-13"
 CAL_API_VERSION_SLOTS = "2024-09-04"
+
+
+def _to_e164(phone: str) -> str:
+    """Best-effort E.164 for cal.com, which rejects a bare 10-digit number as invalid.
+
+    A 10-digit number is assumed North American (+1); an 11-digit 1-prefixed number gets a
+    leading +. Anything already +-prefixed is left as is.
+    """
+    p = (phone or "").strip()
+    if p.startswith("+"):
+        return p
+    digits = re.sub(r"\D", "", p)
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    return f"+{digits}" if digits else p
 
 
 async def get_available_slots(
@@ -83,13 +101,15 @@ async def create_showing_booking(
         "start": start_utc_iso,
         "attendee": {
             "name": attendee_name,
-            "phoneNumber": attendee_phone,
+            "phoneNumber": _to_e164(attendee_phone),
             "timeZone": attendee_timezone,
             "language": "en",
         },
+        # Only fields this event type actually defines. The property address goes in `notes`; a
+        # custom `property-address` field does not exist on the event type and cal.com rejects
+        # the whole booking (400) if we send an unknown field.
         "bookingFieldsResponses": {
-            "property-address": property_address,
-            "notes": f"Property showing for {property_address}",
+            "notes": f"Property showing for {property_address}".strip(),
         },
         "metadata": {"source": "realtyrecall"},
     }
