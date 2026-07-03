@@ -5,6 +5,7 @@ import ForceGraph2D, {
   type NodeObject,
 } from "react-force-graph-2d";
 import { getGraph, type MemoryGraphData } from "@/lib/api";
+import { useTheme } from "@/lib/use-theme";
 
 const TYPE_COLOR: Record<string, string> = {
   Realtor: "#7c3aed",
@@ -20,6 +21,7 @@ type GLink = { source: string; target: string };
 // The buyer + listing memory lives in Cognee (Neo4j graph + pgvector). This renders the
 // realtor's own subgraph and re-fetches every 10s so it visibly grows as calls happen.
 export function MemoryGraph() {
+  const { theme } = useTheme();
   const [data, setData] = useState<MemoryGraphData>({ nodes: [], edges: [] });
   const wrap = useRef<HTMLDivElement>(null);
   // Held so onEngineStop can call zoomToFit, scaling the graph to fill and center its canvas.
@@ -85,10 +87,13 @@ export function MemoryGraph() {
           graphData={graph}
           width={size.width}
           height={size.height}
+          // Transparent so the card's own (theme-aware) background shows through, instead of the
+          // canvas painting an opaque light fill that stays bright in dark mode.
+          backgroundColor="rgba(0,0,0,0)"
           nodeRelSize={5}
           nodeColor={(n) => TYPE_COLOR[(n as { type: string }).type] ?? "#64748b"}
           nodeLabel="name"
-          linkColor={() => "#cbd5e1"}
+          linkColor={() => (theme === "dark" ? "#475569" : "#cbd5e1")}
           linkDirectionalParticles={1}
           cooldownTicks={80}
           onEngineStop={() => fgRef.current?.zoomToFit(400, 30)}

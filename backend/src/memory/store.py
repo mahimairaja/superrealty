@@ -524,6 +524,26 @@ class MemoryStore:
         )
         return result
 
+    async def reset_tenant(self, tenant_id: str) -> int:
+        """Delete every graph node in this realtor's NodeSet: their Realtor, Listings,
+        Neighbourhoods, Buyers, Showings, and the cognified chunks tagged with the set.
+
+        Tenant-scoped by construction: it only ever deletes node ids read back from THIS
+        tenant's NodeSet subgraph, so another realtor's data can never be touched. The stable
+        NodeSet id is recreated on the next write, so onboarding fresh listings just works.
+        Returns the number of nodes removed. Leaves orphaned vectors (harmless: they are no
+        longer in the graph the console and recall read from).
+        """
+        await ensure_cognee()
+        graph = await get_graph_engine()
+        nodes, _edges = await graph.get_nodeset_subgraph(
+            node_type=NodeSet, node_name=[tenant_tag(tenant_id)]
+        )
+        node_ids = [str(node_id) for node_id, _props in nodes]
+        if node_ids:
+            await graph.delete_nodes(node_ids)
+        return len(node_ids)
+
 
 _store: MemoryStore | None = None
 

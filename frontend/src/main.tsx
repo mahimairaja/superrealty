@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ClerkProvider } from "@clerk/clerk-react";
 import "@fontsource-variable/geist";
 import "./index.css";
 import App from "./App.tsx";
+import { ThemeProvider } from "./lib/theme-provider";
+import { ThemedClerkProvider } from "./components/app/themed-clerk-provider";
 
 // Resolve the theme before first paint so there is no light/dark flash.
 const stored = localStorage.getItem("rr-theme");
@@ -13,15 +14,12 @@ document.documentElement.classList.toggle(
   stored ? stored === "dark" : prefersDark,
 );
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
-}
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-      <App />
-    </ClerkProvider>
+    <ThemeProvider>
+      <ThemedClerkProvider>
+        <App />
+      </ThemedClerkProvider>
+    </ThemeProvider>
   </StrictMode>,
 );

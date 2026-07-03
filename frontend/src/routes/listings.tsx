@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { curatedImage, houseImage } from "@/lib/house-images";
 
 // A public synthetic realtor site so first-time users can watch onboarding work in one click,
 // before they have their own site handy. Overridable per deploy.
@@ -229,8 +230,24 @@ export default function Listings() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {live.map((l, i) => (
-              <Card key={l.code ?? l.address ?? i} className="gap-3">
-                <CardContent className="space-y-2">
+              <Card
+                key={l.code ?? l.address ?? i}
+                className="gap-0 overflow-hidden pt-0"
+              >
+                <img
+                  src={houseImage(l)}
+                  alt={l.address ?? "Home"}
+                  loading="lazy"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    if (!el.dataset.fb) {
+                      el.dataset.fb = "1";
+                      el.src = curatedImage(l);
+                    }
+                  }}
+                  className="h-40 w-full object-cover"
+                />
+                <CardContent className="space-y-2 pt-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">

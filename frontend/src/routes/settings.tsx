@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useOrganization } from "@clerk/clerk-react";
-import { Check, Code2, Copy, MessageSquare } from "lucide-react";
-import { getSettings, updateSettings } from "@/lib/api";
+import {
+  Check,
+  Code2,
+  Copy,
+  Loader2,
+  MessageSquare,
+  RotateCcw,
+} from "lucide-react";
+import { getSettings, resetMemory, updateSettings } from "@/lib/api";
 import { CallLinkCard } from "@/components/app/call-link-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +22,25 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState("");
+
+  async function handleReset() {
+    setResetting(true);
+    setResetStatus("");
+    try {
+      const { removed } = await resetMemory();
+      setResetStatus(
+        `Cleared ${removed} memory node${removed === 1 ? "" : "s"}. Reconnect your listings to start fresh.`,
+      );
+    } catch {
+      setResetStatus("Could not reset just now, please try again.");
+    } finally {
+      setResetting(false);
+      setConfirmReset(false);
+    }
+  }
 
   const snippet = organization
     ? `<script src="${window.location.origin}/embed.js" data-org="${organization.id}" async></script>`
@@ -144,6 +170,60 @@ export default function Settings() {
       )}
 
       <CallLinkCard />
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <RotateCcw className="size-4 text-destructive" /> Reset demo data
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Permanently deletes every listing, buyer, and showing your assistant
+            remembers, so you can re-onboard from scratch. This only affects your
+            own agency and cannot be undone.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {confirmReset ? (
+              <>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => void handleReset()}
+                  disabled={resetting}
+                >
+                  {resetting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="size-4" />
+                  )}
+                  {resetting ? "Resetting..." : "Yes, delete everything"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmReset(false)}
+                  disabled={resetting}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setConfirmReset(true)}
+              >
+                <RotateCcw className="size-4" /> Reset demo data
+              </Button>
+            )}
+          </div>
+          {resetStatus && (
+            <p className="text-sm text-muted-foreground">{resetStatus}</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
