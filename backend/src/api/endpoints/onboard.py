@@ -2,6 +2,7 @@ import asyncio
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
+from src import telemetry
 from src.core.clerk import CurrentTenant
 from src.memory.store import get_memory_store
 from src.schemas.listing_schemas import (
@@ -41,9 +42,12 @@ async def onboard(
         # Fan-out: crawl the realtor's OWN site from the seed URL and extract every listing
         # plus a short profile. Bounded by a deadline so a slow site can't hang the request.
         try:
-            drafts, profile = await asyncio.wait_for(
-                ingest_service.ingest_url(url), timeout=75.0
-            )
+            # Attribute the onboarding extraction LLM spend to this realtor. The contextvar is
+            # copied into the wait_for task, so llm_service records usage under this tenant.
+            with telemetry.attribute(tenant_id, "onboard.ingest"):
+                drafts, profile = await asyncio.wait_for(
+                    ingest_service.ingest_url(url), timeout=75.0
+                )
         except fetch_service.FetchError as exc:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

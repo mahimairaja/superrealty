@@ -15,6 +15,7 @@ from cognee.infrastructure.databases.graph import get_graph_engine
 from cognee.modules.engine.models import NodeSet
 
 import src.memory.store as _store_module
+from src import telemetry
 from src.memory.store import ensure_cognee, tenant_tag
 
 
@@ -83,6 +84,7 @@ class GraphService:
         ),
     )
 
+    @telemetry.track("cognee.insights")
     async def insights(self, tenant_id: str) -> list[dict[str, Any]]:
         try:
             await ensure_cognee()

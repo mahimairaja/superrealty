@@ -23,6 +23,7 @@ from cognee.modules.engine.models import NodeSet
 from cognee.modules.engine.operations.setup import setup as cognee_setup
 from cognee.tasks.storage import add_data_points
 
+from src import telemetry
 from src.memory.models import Buyer, Listing, Neighbourhood, Realtor, Showing
 
 _configured = False
@@ -227,6 +228,7 @@ class MemoryStore:
     are never visible to another's.
     """
 
+    @telemetry.track("cognee.add_listings")
     async def add_listings(
         self, tenant_id: str, realtor: dict[str, Any], listings: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
@@ -270,6 +272,7 @@ class MemoryStore:
         await add_data_points(points)
         return listings
 
+    @telemetry.track("cognee.add_listing")
     async def add_single_listing(
         self, tenant_id: str, item: dict[str, Any]
     ) -> dict[str, Any]:
@@ -303,6 +306,7 @@ class MemoryStore:
         await add_data_points(points)
         return item
 
+    @telemetry.track("cognee.recall")
     async def recall(
         self, tenant_id: str, criteria: dict[str, Any] | str, top_k: int = 5
     ) -> list[Any]:
@@ -402,6 +406,7 @@ class MemoryStore:
             )
         return out
 
+    @telemetry.track("cognee.match")
     async def match_buyers(self, tenant_id: str, listing: dict[str, Any]) -> str:
         """Find buyers whose stated criteria match a (newly added) listing, with which of
         their wishes it meets. Scoped to this tenant's NodeSet (typed Buyer + Listing nodes).
@@ -428,6 +433,7 @@ class MemoryStore:
         )
         return str(results[0]) if results else ""
 
+    @telemetry.track("cognee.upsert_buyer")
     async def upsert_buyer(
         self, tenant_id: str, buyer: dict[str, Any]
     ) -> dict[str, Any]:
@@ -467,6 +473,7 @@ class MemoryStore:
             await cognee.cognify(datasets=[dataset])
         return buyer
 
+    @telemetry.track("cognee.get_buyer")
     async def get_buyer(self, tenant_id: str, phone: str) -> dict[str, Any]:
         """Recall a returning buyer by phone: name, prior criteria, homes discussed.
 
@@ -491,6 +498,7 @@ class MemoryStore:
             return {"found": False, "phone": phone}
         return {"found": True, "phone": phone, "summary": str(results[0])}
 
+    @telemetry.track("cognee.recall_nearby")
     async def recall_nearby(self, tenant_id: str, summary: str) -> str | None:
         """A bounded multi-hop suggestion for a returning buyer: a newer listing near what they
         liked (buyer -> liked listing -> neighbourhood -> nearby newer listing). Best-effort:
@@ -516,6 +524,7 @@ class MemoryStore:
         text = str(results[0]).strip() if results else ""
         return text or None
 
+    @telemetry.track("cognee.add_showing")
     async def add_showing(
         self,
         *,
@@ -539,6 +548,7 @@ class MemoryStore:
         note += f" for the buyer at {phone}." if phone else "."
         await cognee.add(note, dataset_name=dataset, node_set=[tenant_tag(tenant_id)])
 
+    @telemetry.track("cognee.improve")
     async def improve(self, tenant_id: str, phone: str | None = None) -> None:
         """Fold the latest understanding back into memory. Scoped to the buyer's dataset when
         a phone is given, else the tenant's listings dataset.

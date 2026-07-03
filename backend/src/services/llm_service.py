@@ -14,6 +14,8 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
+from src import telemetry
+
 logger = logging.getLogger(__name__)
 
 _MODEL = "gpt-4.1-mini"
@@ -88,7 +90,9 @@ _PROFILE_SCHEMA = {
 }
 
 
-async def _structured(text: str, schema: dict[str, Any], instruction: str) -> Any:
+async def _structured(
+    text: str, schema: dict[str, Any], instruction: str, *, operation: str
+) -> Any:
     client = _get_client()
     if client is None or not text.strip():
         return None
@@ -111,6 +115,16 @@ async def _structured(text: str, schema: dict[str, Any], instruction: str) -> An
             response_format={"type": "json_schema", "json_schema": schema},
             temperature=0,
         )
+        # Surface this onboarding call's (otherwise hidden) LLM cost to VoiceGateway, under the
+        # realtor set by the onboard endpoint's telemetry.attribute scope. Best-effort.
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            await telemetry.record_llm_usage(
+                model=_MODEL,
+                prompt_tokens=float(getattr(usage, "prompt_tokens", 0) or 0),
+                completion_tokens=float(getattr(usage, "completion_tokens", 0) or 0),
+                operation=operation,
+            )
         content = resp.choices[0].message.content
         return json.loads(content) if content else None
     except Exception as exc:  # noqa: BLE001  (LLM is best-effort; caller degrades)
@@ -128,6 +142,7 @@ async def extract_listings(text: str) -> list[dict[str, Any]]:
         "You extract real-estate listings from a realtor's own web page. Return every "
         "distinct property you can find. Use only facts present in the text; if a field is "
         "not stated, return null. Never invent a home, address, price, or detail.",
+        operation="onboard.extract_listings",
     )
     if not isinstance(data, dict):
         return []
@@ -147,5 +162,6 @@ async def synthesize_profile(text: str) -> dict[str, Any] | None:
         "You summarize a solo real-estate agent from their own website text into a short "
         "profile: their name, agency/brokerage, the area they serve, a one-line tagline, and "
         "their tone of voice (a few words). Use only what the text supports; null if unknown.",
+        operation="onboard.synthesize_profile",
     )
     return data if isinstance(data, dict) else None
