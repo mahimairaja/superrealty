@@ -59,17 +59,22 @@ export function MemoryGraph() {
     return () => ro.disconnect();
   }, []);
 
-  const graph = useMemo(
-    () => ({
-      nodes: data.nodes.map((n) => ({ id: n.id, name: `${n.type}: ${n.label}`, type: n.type })),
-      links: data.edges.map((e) => ({ source: e.source, target: e.target })),
-    }),
-    [data],
-  );
+  const graph = useMemo(() => {
+    // Show only the labeled entity types so the graph matches its legend; Cognee's internal
+    // nodes (chunks, summaries) are dropped, and any edge to a dropped node with it.
+    const kept = data.nodes.filter((n) => n.type in TYPE_COLOR);
+    const ids = new Set(kept.map((n) => n.id));
+    return {
+      nodes: kept.map((n) => ({ id: n.id, name: `${n.type}: ${n.label}`, type: n.type })),
+      links: data.edges
+        .filter((e) => ids.has(e.source) && ids.has(e.target))
+        .map((e) => ({ source: e.source, target: e.target })),
+    };
+  }, [data]);
 
   return (
     <div ref={wrap} className="min-h-[300px] sm:min-h-[420px]">
-      {data.nodes.length === 0 ? (
+      {graph.nodes.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">
           Your memory graph is empty. Make a call to watch Realtor, Listings, Buyers, and
           Neighbourhoods connect.

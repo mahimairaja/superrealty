@@ -5,6 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+// Present a stored phone in a readable North American format, falling back to the raw value
+// for anything that is not a plain 10 or 11 (leading 1) digit number.
+function formatPhone(raw?: string | null): string {
+  if (!raw) return "";
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("1")) {
+    return `+1 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  }
+  if (d.length === 10) {
+    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  }
+  return raw;
+}
+
 function criteriaChips(criteria?: Record<string, unknown> | null): string[] {
   if (!criteria) return [];
   const out: string[] = [];
@@ -81,8 +95,8 @@ export default function Buyers() {
               <CardContent className="space-y-2">
                 <div className="text-sm font-medium">{b.name ?? "Buyer"}</div>
                 {b.phone && (
-                  <div className="font-mono text-xs tabular-nums text-muted-foreground">
-                    {b.phone}
+                  <div className="text-xs tabular-nums text-muted-foreground">
+                    {formatPhone(b.phone)}
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5 pt-1">
