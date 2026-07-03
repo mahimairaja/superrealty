@@ -174,6 +174,26 @@ export async function getLiveListings(): Promise<LiveListing[]> {
   return asJSON<LiveListing[]>(res, "getLiveListings");
 }
 
+export interface ListingCreate {
+  address: string;
+  price?: number | null;
+  beds?: number | null;
+  baths?: number | null;
+  area?: string | null;
+  description?: string | null;
+}
+
+// Add one home straight to the live catalog. It becomes the newest listing, so the "Buyers
+// waiting" match card reflects it right away.
+export async function addListing(payload: ListingCreate): Promise<LiveListing> {
+  const res = await fetch(`${API_BASE}/listings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify(payload),
+  });
+  return asJSON<LiveListing>(res, "addListing");
+}
+
 export interface AccountSettings {
   sms_to?: string | null;
 }

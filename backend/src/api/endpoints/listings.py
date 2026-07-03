@@ -1,10 +1,17 @@
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException, status
 
 from src.core.clerk import CurrentTenant
 from src.core.tenant import AgentTenant
 from src.memory.graph_service import get_graph_service
 from src.memory.store import get_memory_store
-from src.schemas.listing_schemas import ListingDraft, ListingPatch, LiveListing
+from src.schemas.listing_schemas import (
+    ListingCreate,
+    ListingDraft,
+    ListingPatch,
+    LiveListing,
+)
 from src.services.onboard_service import StagedStore
 
 router = APIRouter(prefix="/listings", tags=["listings"])
@@ -17,6 +24,17 @@ router = APIRouter(prefix="/listings", tags=["listings"])
 @router.get("", response_model=list[ListingDraft])
 async def list_listings(tenant_id: CurrentTenant, store: StagedStore) -> list[dict]:
     return await store.list(tenant_id)
+
+
+@router.post("", response_model=LiveListing, status_code=status.HTTP_201_CREATED)
+async def create_listing(payload: ListingCreate, tenant_id: CurrentTenant) -> dict:
+    # Add one home straight to the live catalog (a manual console add). It becomes the newest
+    # listing, so the "Buyers waiting" match card immediately reflects it. A code is generated
+    # when omitted so the match lookup (keyed by code) always has one.
+    item = payload.model_dump()
+    if not item.get("code"):
+        item["code"] = f"NEW-{uuid4().hex[:6].upper()}"
+    return await get_memory_store().add_single_listing(tenant_id, item)
 
 
 @router.get("/live", response_model=list[LiveListing])

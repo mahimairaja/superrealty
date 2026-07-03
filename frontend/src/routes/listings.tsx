@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { useOrganization } from "@clerk/clerk-react";
-import { Building2, Link2, Loader2, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import {
+  Building2,
+  Link2,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
+import {
+  addListing,
   confirmOnboard,
   deleteListing,
   getLiveListings,
@@ -52,6 +61,18 @@ export default function Listings() {
   const [importing, setImporting] = useState(false);
   const [profile, setProfile] = useState<RealtorProfile | null>(null);
 
+  // A quick single-home add. Prefilled with a home that matches a Sarnia buyer, so adding it is
+  // one click and the "Buyers waiting" match on Overview lights up immediately.
+  const [draft, setDraft] = useState({
+    address: "9 Marina View Terrace, Sarnia",
+    price: "475000",
+    beds: "3",
+    area: "Sarnia",
+    description: "Just listed: bright 3-bed townhome steps from the marina.",
+  });
+  const [adding, setAdding] = useState(false);
+  const [addStatus, setAddStatus] = useState("");
+
   useEffect(() => {
     let active = true;
     getLiveListings()
@@ -74,6 +95,32 @@ export default function Listings() {
 
   async function refreshLive() {
     setLive(await getLiveListings());
+  }
+
+  async function handleAddListing() {
+    if (!draft.address.trim()) {
+      setAddStatus("Enter an address first.");
+      return;
+    }
+    setAdding(true);
+    setAddStatus("");
+    try {
+      await addListing({
+        address: draft.address.trim(),
+        price: draft.price ? Number(draft.price) : null,
+        beds: draft.beds ? Number(draft.beds) : null,
+        area: draft.area.trim() || null,
+        description: draft.description.trim() || null,
+      });
+      await refreshLive();
+      setAddStatus(
+        "Added and live. Open Overview to see which buyers are waiting for it.",
+      );
+    } catch {
+      setAddStatus("Could not add that listing, please try again.");
+    } finally {
+      setAdding(false);
+    }
   }
 
   async function handleImport() {
@@ -279,6 +326,97 @@ export default function Listings() {
           </div>
         )}
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Plus className="size-4 text-primary" /> Add a listing
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Add one home and it goes live instantly. Then open Overview to see
+            which remembered buyers are already waiting for it.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="add-address">
+              Address
+            </label>
+            <Input
+              id="add-address"
+              value={draft.address}
+              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+              placeholder="123 Main St, Sarnia"
+              disabled={adding}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="add-price">
+                Price
+              </label>
+              <Input
+                id="add-price"
+                type="number"
+                inputMode="numeric"
+                value={draft.price}
+                onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+                placeholder="475000"
+                disabled={adding}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="add-beds">
+                Bedrooms
+              </label>
+              <Input
+                id="add-beds"
+                type="number"
+                inputMode="numeric"
+                value={draft.beds}
+                onChange={(e) => setDraft({ ...draft, beds: e.target.value })}
+                placeholder="3"
+                disabled={adding}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium" htmlFor="add-area">
+                Area
+              </label>
+              <Input
+                id="add-area"
+                value={draft.area}
+                onChange={(e) => setDraft({ ...draft, area: e.target.value })}
+                placeholder="Sarnia"
+                disabled={adding}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="add-desc">
+              Description
+            </label>
+            <Input
+              id="add-desc"
+              value={draft.description}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
+              placeholder="Short description"
+              disabled={adding}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => void handleAddListing()} disabled={adding}>
+              {adding ? <Loader2 className="animate-spin" /> : <Plus />}
+              {adding ? "Adding..." : "Add listing"}
+            </Button>
+            {addStatus && (
+              <p className="text-sm text-muted-foreground">{addStatus}</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -270,6 +270,39 @@ class MemoryStore:
         await add_data_points(points)
         return listings
 
+    async def add_single_listing(
+        self, tenant_id: str, item: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Add one home straight to the realtor's live catalog (a manual console add).
+
+        Tagged with the tenant NodeSet and linked to its neighbourhood (the same stable node the
+        existing listings use), so it joins the graph and the buyer-match search picks it up. No
+        new Realtor node is created: it attaches through the shared neighbourhood instead.
+        """
+        await ensure_cognee()
+        nodeset = _tenant_nodeset(tenant_id)
+        points: list[Any] = []
+        hood = None
+        area = item.get("area") or item.get("neighbourhood")
+        if area:
+            hood = _neighbourhood(tenant_id, str(area), item.get("city"))
+            points.append(hood)
+        listing = Listing(
+            code=item["code"],
+            address=item["address"],
+            price=item.get("price"),
+            beds=item.get("beds"),
+            baths=item.get("baths"),
+            sqft=item.get("sqft"),
+            description=item.get("description"),
+            image_url=item.get("image_url"),
+            located_in=hood,
+        )
+        listing.belongs_to_set = [nodeset]
+        points.append(listing)
+        await add_data_points(points)
+        return item
+
     async def recall(
         self, tenant_id: str, criteria: dict[str, Any] | str, top_k: int = 5
     ) -> list[Any]:
