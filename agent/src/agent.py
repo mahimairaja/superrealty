@@ -83,16 +83,11 @@ async def entrypoint(ctx: JobContext) -> None:
     session: AgentSession = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=openai.LLM(model="gpt-4.1-mini"),
-        # OpenAI TTS (reads OPENAI_API_KEY, the same funded key the LLM uses). We moved off the
-        # Gemini TTS free tier because every Gemini TTS model has a tiny per-project daily cap
-        # (100/day flash, 50/day pro) that we kept exhausting mid-demo. gpt-4o-mini-tts is fast
-        # and its `instructions` set the delivery. Swap voice for another OpenAI voice (nova,
-        # coral, sage, alloy, ...).
-        tts=openai.TTS(
-            model="gpt-4o-mini-tts",
-            voice="shimmer",
-            instructions="Speak quickly and energetically, with a warm, upbeat, friendly tone.",
-        ),
+        # Deepgram Aura TTS (reads DEEPGRAM_API_KEY, the same funded key the STT uses). Chosen
+        # over the Gemini TTS free tier (tiny per-project daily caps that kept muting the agent)
+        # and OpenAI, since the Deepgram account already has credits. Aura is low-latency; swap
+        # the model for another Aura-2 voice (e.g. aura-2-cora-en, aura-2-luna-en).
+        tts=deepgram.TTS(model="aura-2-thalia-en"),
         vad=ctx.proc.userdata["vad"],
         turn_handling=TurnHandlingOptions(
             turn_detection=MultilingualModel(),
