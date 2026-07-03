@@ -15,7 +15,9 @@ const TYPE_COLOR: Record<string, string> = {
 export function MemoryGraph() {
   const [data, setData] = useState<MemoryGraphData>({ nodes: [], edges: [] });
   const wrap = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(600);
+  // Track both dimensions so the canvas fills its column and stands taller as the hero on wide
+  // screens, while staying compact on a phone.
+  const [size, setSize] = useState({ width: 600, height: 420 });
 
   useEffect(() => {
     let active = true;
@@ -39,7 +41,10 @@ export function MemoryGraph() {
 
   useEffect(() => {
     if (!wrap.current) return;
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    const ro = new ResizeObserver(([e]) => {
+      const w = e.contentRect.width;
+      setSize({ width: w, height: w < 640 ? 300 : 420 });
+    });
     ro.observe(wrap.current);
     return () => ro.disconnect();
   }, []);
@@ -53,7 +58,7 @@ export function MemoryGraph() {
   );
 
   return (
-    <div ref={wrap} className="min-h-[360px]">
+    <div ref={wrap} className="min-h-[300px] sm:min-h-[420px]">
       {data.nodes.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">
           Your memory graph is empty. Make a call to watch Realtor, Listings, Buyers, and
@@ -62,8 +67,8 @@ export function MemoryGraph() {
       ) : (
         <ForceGraph2D
           graphData={graph}
-          width={width}
-          height={360}
+          width={size.width}
+          height={size.height}
           nodeRelSize={5}
           nodeColor={(n) => TYPE_COLOR[(n as { type: string }).type] ?? "#64748b"}
           nodeLabel="name"
