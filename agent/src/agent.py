@@ -83,11 +83,13 @@ async def entrypoint(ctx: JobContext) -> None:
     session: AgentSession = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=openai.LLM(model="gpt-4.1-mini"),
-        # Gemini Flash TTS (reads GOOGLE_API_KEY from the environment). Swap voice_name for a
-        # different Gemini voice (e.g. Puck, Kore, Fenrir); the instructions set the pace, since
-        # GeminiTTS has no numeric speaking-rate parameter.
+        # Gemini TTS (reads GOOGLE_API_KEY from the environment). Temporarily on the `pro` model
+        # because the `flash` model's free daily quota is exhausted and billing has not yet lifted
+        # it; `pro` has a separate quota. Revert to gemini-2.5-flash-preview-tts (faster) once the
+        # flash quota is available. Swap voice_name for another Gemini voice; instructions set the
+        # pace, since GeminiTTS has no numeric speaking-rate parameter.
         tts=google.beta.GeminiTTS(
-            model="gemini-2.5-flash-preview-tts",
+            model="gemini-2.5-pro-preview-tts",
             voice_name="Zephyr",
             instructions="Speak quickly and energetically, with an upbeat, friendly, confident tone.",
         ),
