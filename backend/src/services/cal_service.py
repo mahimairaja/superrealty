@@ -122,7 +122,15 @@ async def create_showing_booking(
         resp = await client.post(
             f"{CAL_BASE_URL}/bookings", headers=headers, json=payload
         )
-        resp.raise_for_status()
+        if resp.is_error:
+            # Surface cal's actual reason: raise_for_status hides the response body, which is
+            # where the rejection detail lives (unknown field, invalid slot, taken time, ...).
+            raise httpx.HTTPStatusError(
+                f"cal booking {resp.status_code} for start={start_utc_iso}: "
+                f"{resp.text[:400]}",
+                request=resp.request,
+                response=resp,
+            )
         data = resp.json()["data"]
     return {
         "uid": data["uid"],
