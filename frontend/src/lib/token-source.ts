@@ -11,11 +11,6 @@ export const tokenSource = TokenSource.endpoint(TOKEN_ENDPOINT);
 // Must match the agent worker's agent_name (AGENT_NAME in the agent package).
 export const AGENT_NAME = import.meta.env.VITE_AGENT_NAME ?? "realty";
 
-export type TenantTokenSource = {
-  source: ReturnType<typeof TokenSource.custom>;
-  setBuyerPhone: (phone: string) => void;
-};
-
 /**
  * A token source for a buyer calling a specific realtor. It posts the realtor's tenant slug
  * (their Clerk org id) so the backend names the room t_{tenant}_{random}; the agent recovers
@@ -25,14 +20,13 @@ export type TenantTokenSource = {
  * endpoint source does not allow extra fields). Agent dispatch is packaged into room_config,
  * exactly as the endpoint source does it.
  *
- * Returns the source plus `setBuyerPhone`: the buyer's number is held in this closure (not in
- * React state, so it never trips render-purity rules) and, if set before start, is sent as the
- * `buyer.phone` participant attribute so the agent can recognize a returning caller from the
- * first word, like SIP caller ID.
+ * `buyerPhone` is baked in at creation (the caller enters it before this source is made, since
+ * useSession mints the token as soon as it mounts). When present it is sent as the `buyer.phone`
+ * participant attribute so the agent recognizes a returning caller from the first word, like
+ * SIP caller ID.
  */
-export function tokenSourceForTenant(tenant: string): TenantTokenSource {
-  let buyerPhone = "";
-  const source = TokenSource.custom(
+export function tokenSourceForTenant(tenant: string, buyerPhone = "") {
+  return TokenSource.custom(
     async (options): Promise<TokenSourceResponseObject> => {
       // Forward every option the backend RoomTokenRequest supports. roomName is intentionally
       // omitted: the tenant flow names the room server-side (t_{tenant}_{random}), so a client
@@ -84,10 +78,4 @@ export function tokenSourceForTenant(tenant: string): TenantTokenSource {
       };
     },
   );
-  return {
-    source,
-    setBuyerPhone: (phone: string) => {
-      buyerPhone = phone;
-    },
-  };
 }
