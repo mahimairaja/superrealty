@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph2D from "react-force-graph-2d";
+import ForceGraph2D, {
+  type ForceGraphMethods,
+  type LinkObject,
+  type NodeObject,
+} from "react-force-graph-2d";
 import { getGraph, type MemoryGraphData } from "@/lib/api";
 
 const TYPE_COLOR: Record<string, string> = {
@@ -10,12 +14,20 @@ const TYPE_COLOR: Record<string, string> = {
   Showing: "#d97706",
 };
 
+type GNode = { id: string; name: string; type: string };
+type GLink = { source: string; target: string };
+
 // The buyer + listing memory lives in Cognee (Neo4j graph + pgvector). This renders the
 // realtor's own subgraph and re-fetches every 10s so it visibly grows as calls happen.
 export function MemoryGraph() {
   const [data, setData] = useState<MemoryGraphData>({ nodes: [], edges: [] });
   const wrap = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(600);
+  // Held so onEngineStop can call zoomToFit, scaling the graph to fill and center its canvas.
+  const fgRef =
+    useRef<ForceGraphMethods<NodeObject<GNode>, LinkObject<GNode, GLink>>>(undefined);
+  // Track both dimensions so the canvas fills its column and stands taller as the hero on wide
+  // screens, while staying compact on a phone.
+  const [size, setSize] = useState({ width: 600, height: 420 });
 
   useEffect(() => {
     let active = true;
@@ -39,7 +51,10 @@ export function MemoryGraph() {
 
   useEffect(() => {
     if (!wrap.current) return;
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    const ro = new ResizeObserver(([e]) => {
+      const w = e.contentRect.width;
+      setSize({ width: w, height: w < 640 ? 300 : 420 });
+    });
     ro.observe(wrap.current);
     return () => ro.disconnect();
   }, []);
@@ -53,7 +68,7 @@ export function MemoryGraph() {
   );
 
   return (
-    <div ref={wrap} className="min-h-[360px]">
+    <div ref={wrap} className="min-h-[300px] sm:min-h-[420px]">
       {data.nodes.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">
           Your memory graph is empty. Make a call to watch Realtor, Listings, Buyers, and
@@ -61,14 +76,17 @@ export function MemoryGraph() {
         </p>
       ) : (
         <ForceGraph2D
+          ref={fgRef}
           graphData={graph}
-          width={width}
-          height={360}
+          width={size.width}
+          height={size.height}
           nodeRelSize={5}
           nodeColor={(n) => TYPE_COLOR[(n as { type: string }).type] ?? "#64748b"}
           nodeLabel="name"
           linkColor={() => "#cbd5e1"}
           linkDirectionalParticles={1}
+          cooldownTicks={80}
+          onEngineStop={() => fgRef.current?.zoomToFit(400, 30)}
         />
       )}
     </div>

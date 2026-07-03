@@ -77,7 +77,7 @@ export default function Overview() {
   ];
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8 sm:gap-10">
       {/* 1. What it is */}
       <StorySection
         title={`${greeting()}${user?.firstName ? `, ${user.firstName}` : ""}`}
