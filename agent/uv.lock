@@ -1542,6 +1542,9 @@ images = [
 openai = [
     { name = "livekit-plugins-openai" },
 ]
+silero = [
+    { name = "livekit-plugins-silero" },
+]
 turn-detector = [
     { name = "livekit-plugins-turn-detector" },
 ]
@@ -2192,6 +2195,19 @@ wheels = [
 [package.optional-dependencies]
 realtime = [
     { name = "websockets" },
+]
+
+[[package]]
+name = "openrtc"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "livekit-agents", extra = ["openai", "silero", "turn-detector"] },
+    { name = "watchfiles" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8d/f2/c382aad6e7d6d6f248b71241fd2d508301e53715aa7ee4b5b393e686152a/openrtc-0.17.0.tar.gz", hash = "sha256:2202530ba89fb61f788e4bde8a6e8117ec6d4825195aca33bf517ec90f98f6df", size = 2035170, upload-time = "2026-07-05T06:26:42.944Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/2b/64c012066348b8d995731eeac97645fbbaddd3a8ce6a73399fbd2760f3b6/openrtc-0.17.0-py3-none-any.whl", hash = "sha256:f2223b8f6e4d10119c54506b69133c691ad3aebeeaa256162fafe0c9d7451689", size = 129561, upload-time = "2026-07-05T06:26:41.586Z" },
 ]
 
 [[package]]
@@ -3427,6 +3443,7 @@ dependencies = [
     { name = "livekit-plugins-deepgram" },
     { name = "livekit-plugins-google" },
     { name = "livekit-plugins-silero" },
+    { name = "openrtc" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "sentry-sdk" },
@@ -3451,6 +3468,7 @@ requires-dist = [
     { name = "livekit-plugins-deepgram", specifier = ">=1.6.0" },
     { name = "livekit-plugins-google", specifier = ">=1.6.0" },
     { name = "livekit-plugins-silero", specifier = ">=1.6.0" },
+    { name = "openrtc", specifier = ">=0.11.0" },
     { name = "pydantic-settings", specifier = ">=2.14.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "sentry-sdk", specifier = ">=2.56.0" },
