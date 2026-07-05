@@ -43,6 +43,27 @@ def build_pool() -> AgentPool:
         isolation=os.getenv("AGENT_ISOLATION", "coroutine"),
         max_concurrent_sessions=int(os.getenv("AGENT_MAX_CONCURRENT_SESSIONS", "50")),
         drain_timeout=300,
+        # openrtc "top": per-call memory / CPU / event-loop-block attribution, so a
+        # slow Cognee query starving the shared loop is visible per session.
+        enable_introspection=True,
+        slow_session_threshold_ms=50.0,
+        # Hot reload for dev only (edit RealtyAgent instructions/tools, swap live
+        # calls on their next turn). Off in prod: a redeploy is the prod path.
+        enable_hot_reload=os.getenv("AGENT_HOT_RELOAD") == "1",
+        # Blue-green: tag the pool with the deploy version so a rollout lets
+        # in-flight buyer calls finish on the old version (drain_timeout=300).
+        deployment_version=(
+            os.getenv("AGENT_DEPLOYMENT_VERSION")
+            or os.getenv("RAILWAY_GIT_COMMIT_SHA")
+            or None
+        ),
+        # Per-tenant provider config / caps / circuit breaker are intentionally
+        # NOT set: openrtc keys those on the dispatch ``tenant`` metadata, which
+        # RealtyRecall does not emit today (the realtor is in the room NAME,
+        # t_{tenant}_{random}). Enabling the breaker without it would key every
+        # call to "default" and could trip the whole fleet on a transient blip.
+        # Per-tenant provider tiers also assume a static tenant set, which does
+        # not fit dynamic realtors. See LOOP_PROGRESS for the follow-up.
     )
     # greeting=None: on_enter owns the opening reply (recording disclosure + the
     # realtor's persona + returning-caller recall). One agent, addressed by the
