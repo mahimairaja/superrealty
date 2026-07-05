@@ -1,4 +1,3 @@
-// frontend/src/components/marketing/landing-page.tsx
 import { Hero } from "@/components/marketing/hero";
 import { Pain } from "@/components/marketing/pain";
 import { ProofStats } from "@/components/marketing/proof-stats";

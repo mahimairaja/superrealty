@@ -1,4 +1,3 @@
-// frontend/src/components/marketing/landing-page.test.tsx
 import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -23,13 +22,14 @@ test("hero headline renders", () => {
   expect(screen.getByText(/Never forget a buyer\./i)).toBeInTheDocument();
 });
 
-test("all three pricing tiers render with prices", () => {
+test("all three pricing tiers render", () => {
   renderPage();
   expect(screen.getByText("Starter")).toBeInTheDocument();
   expect(screen.getByText("$297")).toBeInTheDocument();
   expect(screen.getByText("Pro")).toBeInTheDocument();
   expect(screen.getByText("$597")).toBeInTheDocument();
   expect(screen.getByText("Brokerage")).toBeInTheDocument();
+  expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
 });
 
 test("comparison differentiator row renders", () => {

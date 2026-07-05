@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react";
+import { TRIAL_DAYS } from "@/components/marketing/constants";
 
 const FAQS = [
   {
@@ -23,7 +24,7 @@ const FAQS = [
   },
   {
     q: "Can I cancel?",
-    a: "Yes. The trial is 7 days and risk-free, and you can cancel anytime.",
+    a: `Yes. The trial is ${TRIAL_DAYS} days and risk-free, and you can cancel anytime.`,
   },
 ];
 

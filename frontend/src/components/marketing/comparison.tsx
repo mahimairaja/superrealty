@@ -61,7 +61,7 @@ export function Comparison() {
             {ROWS.map((r) => (
               <tr
                 key={r.label}
-                className={r.star ? "bg-accent/40" : "border-t border-border"}
+                className={r.star ? "border-t border-border bg-accent/40" : "border-t border-border"}
               >
                 <th scope="row" className="p-3 text-left font-normal">
                   {r.label}

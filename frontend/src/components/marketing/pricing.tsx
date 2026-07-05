@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { StartFreeButton } from "@/components/marketing/start-free-button";
+import { TRIAL_DAYS } from "@/components/marketing/constants";
 
 const TIERS = [
   {
@@ -52,7 +53,7 @@ export function Pricing() {
         Simple pricing. No setup fee.
       </h2>
       <p className="mt-2 text-center text-sm text-muted-foreground">
-        Start free for 7 days. Cancel anytime.
+        Start free for {TRIAL_DAYS} days. Cancel anytime.
       </p>
       <div className="mt-10 grid gap-4 lg:grid-cols-3">
         {TIERS.map((t) => (
