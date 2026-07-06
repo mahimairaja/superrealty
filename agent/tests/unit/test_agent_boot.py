@@ -25,3 +25,15 @@ def test_realty_agent_is_arglessly_constructible():
     assert agent is not None
     # on_enter / on_exit are the per-call lifecycle hooks the pool drives.
     assert hasattr(agent, "on_enter") and hasattr(agent, "on_exit")
+
+
+def test_container_entrypoint_imports_and_uses_build_pool():
+    # The Docker image runs the agent via ``main.py`` (download-files at build,
+    # start at run). The openrtc migration replaced the module-level ``server``
+    # with ``build_pool()``; if main.py still imported the old symbol the image
+    # would fail to build AND start. Import it here so that regression is caught
+    # without a container. The ``if __name__ == "__main__"`` guard keeps the
+    # import side-effect-free (no cli.run_app on import).
+    import main
+
+    assert main.build_pool is agent_module.build_pool
