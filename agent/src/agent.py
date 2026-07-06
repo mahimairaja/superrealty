@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Literal
 
 import sentry_sdk
 from livekit.plugins import deepgram, openai
@@ -25,6 +26,17 @@ if config.SENTRY_DSN:
     )
 
 
+def _isolation() -> Literal["coroutine", "process"]:
+    """AgentPool isolation from AGENT_ISOLATION, narrowed to the accepted literals.
+
+    Defaults to coroutine (one worker, many concurrent calls as asyncio tasks);
+    only an explicit AGENT_ISOLATION=process opts into per-call process isolation.
+    Any other value falls back to coroutine rather than reaching AgentPool as a
+    bare str (which the type checker rejects).
+    """
+    return "process" if os.getenv("AGENT_ISOLATION") == "process" else "coroutine"
+
+
 def build_pool() -> AgentPool:
     """Construct the openrtc pool that hosts RealtyAgent.
 
@@ -40,7 +52,7 @@ def build_pool() -> AgentPool:
         default_llm=openai.LLM(model="gpt-4.1-mini"),
         # Deepgram Aura TTS reads DEEPGRAM_API_KEY, the same funded key as the STT.
         default_tts=deepgram.TTS(model="aura-2-thalia-en"),
-        isolation=os.getenv("AGENT_ISOLATION", "coroutine"),
+        isolation=_isolation(),
         max_concurrent_sessions=int(os.getenv("AGENT_MAX_CONCURRENT_SESSIONS", "50")),
         drain_timeout=300,
         # openrtc "top": per-call memory / CPU / event-loop-block attribution, so a
