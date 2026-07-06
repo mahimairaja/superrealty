@@ -191,6 +191,12 @@ class Config(BaseSettings):
     LIVEKIT_API_KEY: str | None = None
     LIVEKIT_API_SECRET: SecretStr | None = None
 
+    # VoiceGateway usage widget: the vk_ ingest key (the same key the agent +
+    # backend telemetry use) mints a per-realtor embed token so a realtor sees
+    # their own call usage on the Overview. Empty -> the widget endpoint 503s.
+    VOICEGW_API_KEY: SecretStr | None = None
+    VOICEGW_CLOUD_API: str = "https://cloud-api-production-dc6e.up.railway.app"
+
     # Shared secret the agent worker presents (X-Agent-Secret) so the backend can trust the
     # tenant it asserts (X-Tenant-Id). Must match the agent's AGENT_SERVICE_SECRET. Without
     # it, the tenant-scoped agent endpoints refuse, so a forged header cannot cross tenants.
