@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 import voicegateway
@@ -134,7 +135,7 @@ class RealtyAgent(Agent):
         # Detached UI-push tasks (held so they are not garbage-collected mid-flight).
         self._bg: set[asyncio.Task[Any]] = set()
         # Set in on_enter (per call): the usage-summary logger from register_event_handlers.
-        self._log_usage_summary = None
+        self._log_usage_summary: Callable[[], None] | None = None
 
     def _fire(self, coro: Any) -> None:
         """Run a UI push in the background so it never adds latency to the voice turn (a slow

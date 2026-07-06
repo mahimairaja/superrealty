@@ -21,7 +21,12 @@ RUN uv sync --locked --no-dev --no-install-project
 
 COPY . .
 
-RUN uv run python main.py download-files
+# download-files builds the pool, which constructs the STT/LLM/TTS providers, and
+# those validate that an API key is present at construction. The build has no
+# secrets, so pass throwaway keys scoped to this RUN only (not persisted as ENV;
+# the real keys come from the runtime environment at `start`).
+RUN DEEPGRAM_API_KEY=build OPENAI_API_KEY=build \
+    uv run python main.py download-files
 
 # --- Production stage ---
 FROM base
