@@ -21,6 +21,11 @@ from zoneinfo import ZoneInfo
 import voicegateway
 from livekit.agents import Agent, RunContext, function_tool, get_job_context
 
+from src.agents.listing_filters import (
+    ListingSearchFilters,
+    filter_listings,
+    summarize_filters,
+)
 from src.core.config import config
 from src.core.events import register_event_handlers
 from src.prompts.instructions import _clean, realtor_instructions
@@ -29,22 +34,6 @@ from src.services.api_client import BackendApiClient
 from src.utils.room import identify, resolve_tenant_id
 
 logger = logging.getLogger("agent")
-
-
-def _filter_by_criteria(
-    catalog: list[dict[str, Any]], criteria: str
-) -> list[dict[str, Any]]:
-    """Best-effort narrow of the catalog for the shortlist. Parses a bedroom count from the
-    natural-language criteria (the most reliable signal); falls back to the whole catalog so
-    the buyer always sees homes.
-    """
-    match = re.search(r"(\d+)\s*(?:\+|or more)?\s*(?:bed|bedroom|br)", criteria.lower())
-    if match:
-        min_beds = int(match.group(1))
-        narrowed = [h for h in catalog if (h.get("beds") or 0) >= min_beds]
-        if narrowed:
-            return narrowed
-    return catalog
 
 
 def _find_listing(catalog: list[dict[str, Any]], home: str) -> dict[str, Any] | None:
@@ -313,13 +302,14 @@ class RealtyAgent(Agent):
         except Exception as exc:  # noqa: BLE001
             logger.warning("max-duration delete_room failed: %s", exc)
 
-    async def _listings_answer(self, criteria: str) -> str:
+    async def _listings_answer(self, filters: ListingSearchFilters) -> str:
         """Answer a listings question from the realtor's fast structured catalog.
 
         The catalog is a direct DB read (sub-second), unlike the Cognee recall endpoint whose
         graph+vector+LLM synthesis runs 10-20s and blows the voice turn's timeout. Answering
         from the catalog keeps replies inside a normal turn while staying fully grounded in the
-        realtor's real, connected listings.
+        realtor's real, connected listings. The parsed filters are read back as a lead-in
+        ("in Sarnia, 3+ beds, under $480,000:") so the buyer hears their criteria confirmed.
         """
         catalog = await self._ensure_catalog()
         if not catalog:
@@ -327,8 +317,10 @@ class RealtyAgent(Agent):
                 "I'm having a little trouble pulling up listings right now. Can I take "
                 "your details and follow up?"
             )
-        matches = _filter_by_criteria(catalog, criteria)
-        return _format_listings_answer(matches, len(catalog))
+        matches = filter_listings(catalog, filters)
+        answer = _format_listings_answer(matches, len(catalog))
+        echo = summarize_filters(filters)
+        return f"{echo[0].upper()}{echo[1:]}: {answer}" if echo else answer
 
     # ---- Live UI: push tool events to the caller's screen -------------------
     # The buyer's browser registers an "onToolEvent" RPC method; we call it as tools run so
@@ -370,23 +362,48 @@ class RealtyAgent(Agent):
                 return []
         return self._catalog
 
-    async def _emit_shortlist(self, criteria: str) -> None:
+    async def _emit_shortlist(self, filters: ListingSearchFilters) -> None:
         catalog = await self._ensure_catalog()
         if not catalog:
             return
-        matches = _filter_by_criteria(catalog, criteria)
-        await self._push_event("shortlist", {"criteria": criteria, "matches": matches})
+        matches = filter_listings(catalog, filters)
+        label = summarize_filters(filters) or "all current listings"
+        await self._push_event("shortlist", {"criteria": label, "matches": matches})
 
     @function_tool
-    async def search_listings(self, context: RunContext, criteria: str) -> str:
+    async def search_listings(
+        self,
+        context: RunContext,
+        min_beds: int | None = None,
+        min_baths: float | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
+        area: str | None = None,
+        min_sqft: int | None = None,
+        max_sqft: int | None = None,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
+    ) -> str:
         """Find homes from the realtor's own connected listings, and always call this
-        before naming any home. For a specific ask, pass the buyer's stated criteria as
-        natural language (area, budget, bedrooms, and so on). When the buyer wants to
-        know what is available or to list everything, pass a broad query such as
-        "all current listings" to get the full set instead of asking for criteria.
+        before naming any home. Fill only the fields the buyer stated: min_beds,
+        min_baths, min_price and max_price in dollars, area (a neighbourhood or city),
+        min_sqft and max_sqft. Leave every field blank to list all current listings
+        rather than asking for criteria first. Optionally sort_by one of "price",
+        "beds", or "sqft" with sort_order "asc" or "desc".
         """
-        answer = await self._listings_answer(criteria)
-        self._fire(self._emit_shortlist(criteria))
+        filters = ListingSearchFilters(
+            min_beds=min_beds,
+            min_baths=min_baths,
+            min_price=min_price,
+            max_price=max_price,
+            area=area,
+            min_sqft=min_sqft,
+            max_sqft=max_sqft,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+        answer = await self._listings_answer(filters)
+        self._fire(self._emit_shortlist(filters))
         return answer
 
     @function_tool
