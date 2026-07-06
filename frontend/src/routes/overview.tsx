@@ -12,6 +12,7 @@ import {
   type RealtorProfile,
 } from "@/lib/api";
 import { CallLinkCard } from "@/components/app/call-link-card";
+import { UsageWidget } from "@/components/app/usage-widget";
 import { MatchCard } from "@/components/match-card";
 import { MemorySection } from "@/components/app/memory-section";
 import { StorySection } from "@/components/app/story-section";
@@ -179,6 +180,13 @@ export default function Overview() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Usage this month
+          </div>
+          <UsageWidget />
         </div>
 
         <MatchCard />

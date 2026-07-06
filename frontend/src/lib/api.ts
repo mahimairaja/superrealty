@@ -296,3 +296,15 @@ export async function getInsights(): Promise<Insight[]> {
   const res = await fetch(`${API_BASE}/insights`, { headers: await authHeaders() });
   return asJSON<Insight[]>(res, "getInsights");
 }
+
+export interface EmbedTokenResponse {
+  token: string;
+  expires_at: number;
+}
+
+// A short-lived VoiceGateway embed token scoped to the signed-in realtor, for the
+// usage widget. The vk_ key stays server-side; this returns only the token.
+export async function getEmbedToken(): Promise<EmbedTokenResponse> {
+  const res = await fetch(`${API_BASE}/embed/token`, { headers: await authHeaders() });
+  return asJSON<EmbedTokenResponse>(res, "getEmbedToken");
+}
