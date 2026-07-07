@@ -271,6 +271,10 @@ class CallContext:
         if self._closed:
             return
         self._closed = True
+        # Cancel the max-call timer we own so it never lingers past teardown (the LiveKit
+        # runtime also cancels it in production, but doing it here keeps close self-contained).
+        if self._max_call_task is not None:
+            self._max_call_task.cancel()
         if self._log_usage_summary is not None:
             self._log_usage_summary()
         if self.api is not None:
