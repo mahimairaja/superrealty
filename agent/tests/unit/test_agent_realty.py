@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from src.agents.agent_realty import (
     RealtyAgent,
     _find_listing,
@@ -20,13 +22,23 @@ class _FakeApi:
         raises: bool = False,
         catalog: list[dict] | None = None,
         buyer: dict | None = None,
+        availability: dict | None = None,
     ) -> None:
         self.answer = answer
         self.raises = raises
         self.catalog = catalog or []
         self.buyer = buyer or {"found": False}
+        self.availability = availability or {"days": []}
         self.calls: list[tuple[str, str]] = []
         self.get_buyer_calls: list[str] = []
+        self.booking_calls: list[dict] = []
+
+    async def check_availability(self) -> dict:
+        return self.availability
+
+    async def book_showing(self, booking: dict) -> dict:
+        self.booking_calls.append(booking)
+        return {"status": "accepted", "address": "1 Main St", "synced": True}
 
     async def recall(self, realtor: str, criteria: str) -> str:
         self.calls.append((realtor, criteria))
@@ -233,3 +245,72 @@ async def test_recall_appends_nearby_suggestion():
     agent = RealtyAgent(api=api, caller_phone="+15195550142")
     recalled = await agent._recall_returning_buyer()
     assert recalled and "Cathcart" in recalled
+
+
+class _FakeCtx:
+    """Minimal RunContext stand-in: the booking tools only use disallow_interruptions
+    and the with_filler async context manager."""
+
+    def disallow_interruptions(self) -> None:
+        pass
+
+    def with_filler(self, *args, **kwargs):
+        @asynccontextmanager
+        async def _cm():
+            yield
+
+        return _cm()
+
+
+_SLOTS = {
+    "days": [
+        {
+            "date": "2026-07-08",
+            "slots": [
+                {"startUtc": "2026-07-08T13:00:00Z", "label": "9:00 AM"},
+                {"startUtc": "2026-07-08T14:00:00Z", "label": "10:00 AM"},
+            ],
+        }
+    ]
+}
+
+
+async def test_check_availability_captures_offered_slots():
+    agent = RealtyAgent(realtor="Riley", api=_FakeApi(availability=_SLOTS))
+    out = await agent.check_availability(_FakeCtx())
+    assert "9:00 AM" in out
+    assert agent._offered_slots == {
+        "2026-07-08T13:00:00Z",
+        "2026-07-08T14:00:00Z",
+    }
+
+
+async def test_book_showing_rejects_an_unoffered_slot():
+    # No check_availability yet, so any proposed time is fabricated: reject it and send
+    # the model back to check_availability rather than book a hallucinated slot.
+    api = _FakeApi()
+    agent = RealtyAgent(realtor="Riley", api=api)
+    out = await agent.book_showing(
+        _FakeCtx(),
+        property_code="RR-102",
+        start_utc="2026-07-08T13:00:00Z",
+        name="Dana",
+        phone="+15195550100",
+    )
+    assert "open" in out.lower() or "available" in out.lower()
+    assert api.booking_calls == []  # never reached the calendar
+
+
+async def test_book_showing_accepts_an_offered_slot():
+    api = _FakeApi(availability=_SLOTS)
+    agent = RealtyAgent(realtor="Riley", api=api)
+    await agent.check_availability(_FakeCtx())
+    await agent.book_showing(
+        _FakeCtx(),
+        property_code="RR-102",
+        start_utc="2026-07-08T13:00:00Z",
+        name="Dana",
+        phone="+15195550100",
+    )
+    assert api.booking_calls
+    assert api.booking_calls[0]["start"] == "2026-07-08T13:00:00Z"

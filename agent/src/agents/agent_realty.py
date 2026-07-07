@@ -116,6 +116,10 @@ class RealtyAgent(Agent):
         self._ending = False
         # One idempotency key per call, reused on a booking retry.
         self._booking_key: str | None = None
+        # The startUtc values check_availability actually offered this call. book_showing
+        # only accepts a time from this set, so a hallucinated/misheard slot never reaches
+        # the calendar (#5). Empty until the first check_availability.
+        self._offered_slots: set[str] = set()
         # The buyer phone for this call: known at connect for SIP (caller ID), else learned when
         # a web caller states it. Used for the call-log link AND to recall a returning buyer.
         self.last_phone: str | None = caller_phone
@@ -489,6 +493,11 @@ class RealtyAgent(Agent):
         days = data.get("days", [])
         if not days:
             return "I don't see open times in the next week. Can I take your details and follow up?"
+        # Remember exactly which slots were offered so book_showing can reject any other
+        # time (a hallucinated or misheard start) before it reaches the calendar.
+        self._offered_slots = {
+            s["startUtc"] for d in days for s in d.get("slots", []) if s.get("startUtc")
+        }
         lines = [
             f"{d['date']}: {', '.join(s['label'] for s in d['slots'])}" for d in days
         ]
@@ -506,6 +515,16 @@ class RealtyAgent(Agent):
         """Book an in-person showing for a home at a chosen time. start_utc is one of the
         startUtc values from check_availability.
         """
+        # Guard against a hallucinated or misheard time: only book a slot that
+        # check_availability actually offered this call. An empty set means the model
+        # tried to book before checking, so send it back to check_availability rather
+        # than write a fabricated time to the realtor's calendar (#5).
+        if start_utc not in self._offered_slots:
+            logger.warning("book_showing rejected unoffered start_utc=%r", start_utc)
+            return (
+                "I want to make sure that time is still open. Let me pull up the available "
+                "showing times again and we'll pick one."
+            )
         # Fall back to a number entered before the call so a booking still carries a phone even
         # if the buyer never spoke it (the call screen's phone prompt / SIP caller ID).
         phone = phone or self.last_phone or ""
