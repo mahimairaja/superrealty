@@ -18,10 +18,9 @@ def test_rejects_a_tampered_token():
     assert exc.value.status_code == 401
 
 
-def test_rejects_an_expired_token(monkeypatch):
-    token = mint_graph_token("org_a")  # noqa: F841
-    # Fast-forward past the TTL by decoding with a leeway-free clock is hard; instead mint an
-    # already-expired token directly with the same secret.
+def test_rejects_an_expired_token():
+    # Mint an already-expired token directly with the same secret: PyJWT's default exp check
+    # must reject it (faking the clock is harder than backdating the exp claim).
     import src.core.graph_token as m
 
     secret = m.config.JWT_SECRET_KEY.get_secret_value()
