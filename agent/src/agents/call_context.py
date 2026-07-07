@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import voicegateway
 from livekit.agents import get_job_context
 
 from src.agents.listing_filters import (
@@ -26,8 +27,11 @@ from src.agents.listing_filters import (
     summarize_filters,
 )
 from src.core.config import config
+from src.core.events import register_event_handlers
 from src.prompts.instructions import _clean
+from src.runtime.observers import post_call_log
 from src.services.api_client import BackendApiClient
+from src.utils.room import identify, resolve_tenant_id
 
 logger = logging.getLogger("agent")
 
@@ -74,6 +78,8 @@ class CallContext:
         self._log_usage_summary: Callable[[], None] | None = None
         # Detached background tasks (held so they are not garbage-collected mid-flight).
         self._bg: set[asyncio.Task[Any]] = set()
+        # The max-duration guard task, cancelled implicitly when the room closes.
+        self._max_call_task: asyncio.Task[Any] | None = None
         # True once the call has been torn down, so teardown runs exactly once.
         self._closed = False
 
@@ -174,3 +180,101 @@ class CallContext:
         matches = filter_listings(catalog, filters)
         label = summarize_filters(filters) or "all current listings"
         await self.push_event("shortlist", {"criteria": label, "matches": matches})
+
+    # -------------------------------------------------------------------------
+    # Graph reporter
+    # -------------------------------------------------------------------------
+
+    def report_state(
+        self, active: str, action: str, from_agent: str | None = None
+    ) -> None:
+        """Record the now-active specialist and report it to the backend graph (best-effort)."""
+        self.active = active
+        if not self.room:
+            return
+        self.fire(self._report(active, action, from_agent))
+
+    async def _report(self, active: str, action: str, from_agent: str | None) -> None:
+        try:
+            await self.api.report_agent_state(
+                self.room, active=active, action=action, from_agent=from_agent
+            )
+        except Exception as exc:  # noqa: BLE001  (graph reporting is best-effort)
+            logger.debug("agent-state report failed: %s", exc)
+
+    # -------------------------------------------------------------------------
+    # Per-call lifecycle
+    # -------------------------------------------------------------------------
+
+    async def resolve(self, session: Any) -> None:
+        """One-time per-call setup: tenant, caller, persona, telemetry, event handlers, and the
+        max-call guard. Registers close() as a job shutdown callback so teardown runs once at
+        session end (NOT on every handoff, unlike Agent.on_exit). Every step is best-effort."""
+        ctx = get_job_context()
+        room = ctx.room
+        self.room = room.name
+        self.tenant_id = resolve_tenant_id(
+            room.name,
+            getattr(ctx.job, "metadata", None),
+            getattr(room, "metadata", None),
+        )
+        if not self.tenant_id:
+            logger.warning("room %s has no tenant; memory tools unavailable", room.name)
+        self.api = BackendApiClient(tenant_id=self.tenant_id)
+
+        participant = session.room_io.linked_participant
+        if participant is not None:
+            caller = identify(participant)
+            self.last_phone = caller.phone
+            logger.info(
+                "participant joined: kind=%s identity=%s", caller.kind, caller.identity
+            )
+
+        if self.tenant_id:
+            try:
+                persona = await self.api.get_realtor()
+                self.persona = persona or {}
+                self.realtor = self.persona.get("name") or config.AGENT_NAME
+            except Exception as exc:  # noqa: BLE001  (persona is best-effort)
+                logger.warning("realtor persona fetch failed: %s", exc)
+
+        try:
+            voicegateway.attach(
+                session,
+                project="realty-recall",
+                agent_id=config.AGENT_NAME,
+                tenant_id=self.tenant_id,
+            )
+        except Exception:  # noqa: BLE001  (telemetry is best-effort)
+            logger.warning("voicegateway.attach failed", exc_info=True)
+
+        self._log_usage_summary = register_event_handlers(session)
+        self._max_call_task = asyncio.create_task(self._hang_up_max_duration())
+        ctx.add_shutdown_callback(self.close)
+        self.resolved = True
+
+    async def _hang_up_max_duration(self) -> None:
+        try:
+            await asyncio.sleep(config.AGENT_MAX_CALL_SECONDS)
+        except asyncio.CancelledError:
+            return
+        if self._closed:
+            return
+        try:
+            await get_job_context().delete_room()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("max-duration delete_room failed: %s", exc)
+
+    async def close(self, reason: str = "") -> None:
+        """Per-call teardown, run exactly once (job shutdown callback): usage summary, persist
+        the call log and fold the conversation into memory, then release the HTTP pool."""
+        if self._closed:
+            return
+        self._closed = True
+        if self._log_usage_summary is not None:
+            self._log_usage_summary()
+        if self.api is not None:
+            try:
+                await post_call_log(self.api, self.room, buyer_phone=self.last_phone)
+            finally:
+                await self.api.aclose()

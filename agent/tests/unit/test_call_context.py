@@ -116,3 +116,72 @@ async def test_emit_shortlist_pushes_filtered_matches(monkeypatch):
     await ctx.emit_shortlist(ListingSearchFilters(min_beds=3))
     assert pushed[0][0] == "shortlist"
     assert {m["code"] for m in pushed[0][1]["matches"]} == {"RR-102"}
+
+
+async def test_report_state_sets_active_and_is_a_noop_without_a_room():
+    # No room set yet: report_state records the active agent locally but never calls the backend.
+    ctx = CallContext(api=_FakeApi())
+    ctx.report_state("property", "Searching homes")
+    assert ctx.active == "property"
+
+
+async def test_report_state_fires_the_intake_best_effort(monkeypatch):
+    sent: list[dict] = []
+
+    class _ReportingApi(_FakeApi):
+        async def report_agent_state(self, room, active, action, from_agent=None):
+            sent.append(
+                {"room": room, "active": active, "action": action, "from": from_agent}
+            )
+
+    ctx = CallContext(api=_ReportingApi())
+    ctx.room = "t_org_1_abc"
+    ctx.report_state("scheduling", "Checking the calendar", from_agent="property")
+    # fire() schedules a task; let it run.
+    import asyncio
+
+    await asyncio.sleep(0)
+    assert ctx.active == "scheduling"
+    assert sent == [
+        {
+            "room": "t_org_1_abc",
+            "active": "scheduling",
+            "action": "Checking the calendar",
+            "from": "property",
+        }
+    ]
+
+
+async def test_report_state_never_raises_when_the_backend_errors():
+    class _BrokenApi(_FakeApi):
+        async def report_agent_state(self, room, active, action, from_agent=None):
+            raise RuntimeError("backend down")
+
+    ctx = CallContext(api=_BrokenApi())
+    ctx.room = "t_org_1_abc"
+    ctx.report_state("property", "Searching homes")  # must not raise
+    import asyncio
+
+    await asyncio.sleep(0)
+
+
+async def test_close_runs_teardown_exactly_once(monkeypatch):
+    import src.agents.call_context as m
+
+    closed: list[str] = []
+    logged: list[bool] = []
+
+    class _ClosingApi(_FakeApi):
+        async def aclose(self):
+            closed.append("aclose")
+
+    async def fake_post_call_log(api, room, buyer_phone=None):
+        logged.append(True)
+
+    monkeypatch.setattr(m, "post_call_log", fake_post_call_log)
+    ctx = CallContext(api=_ClosingApi())
+    ctx.room = "t_org_1_abc"
+    await ctx.close()
+    await ctx.close()  # second call is a no-op
+    assert closed == ["aclose"]
+    assert logged == [True]
