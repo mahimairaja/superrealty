@@ -28,8 +28,11 @@ class ConciergeAgent(RealtyBaseAgent):
     ID = CONCIERGE
     ACTION = "Greeting the caller"
 
-    def __init__(self, ctx: CallContext) -> None:
-        super().__init__(ctx, instructions=concierge_instructions(ctx.persona or None))
+    def __init__(self, ctx: CallContext | None = None) -> None:
+        resolved = ctx or CallContext()
+        super().__init__(
+            resolved, instructions=concierge_instructions(resolved.persona or None)
+        )
 
     async def on_enter(self) -> None:
         if not self.ctx.resolved:

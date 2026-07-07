@@ -9,7 +9,7 @@ from src.prompts.instructions import (
 
 
 def test_base_prompt_does_not_re_greet():
-    # The spoken opener (RealtyAgent.on_enter) owns the greeting + PIPEDA recording
+    # The spoken opener (ConciergeAgent.on_enter) owns the greeting + PIPEDA recording
     # notice. The persistent system prompt must NOT also instruct a greeting, or the
     # model greets a second time (recording notice and all) on the caller's first
     # turn. Regression guard for the observed double greeting.

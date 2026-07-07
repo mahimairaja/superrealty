@@ -37,7 +37,7 @@ class BackendApiClient:
         self._agent_secret = config.AGENT_SERVICE_SECRET
         # One AsyncClient (connection pool) for this client's lifetime instead of a
         # fresh one per request. Created lazily on first use; closed by ``aclose`` on
-        # call teardown (RealtyAgent.on_exit).
+        # call teardown (CallContext.close).
         self._client: httpx.AsyncClient | None = None
 
     def _headers(self) -> dict[str, str]:
