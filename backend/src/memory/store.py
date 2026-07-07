@@ -58,7 +58,16 @@ async def _ensure_cognee_db() -> None:
             "SELECT 1 FROM pg_database WHERE datname = $1", name
         )
         if not exists:
-            await admin.execute(f'CREATE DATABASE "{name}"')
+            try:
+                await admin.execute(f'CREATE DATABASE "{name}"')
+            except (
+                asyncpg.exceptions.DuplicateDatabaseError,
+                asyncpg.exceptions.UniqueViolationError,
+            ):
+                # Cold-start race: several requests all saw "not exists" and raced to
+                # CREATE DATABASE. One wins; the rest land here. The db exists now, so
+                # this is success, not an error to 500 on.
+                pass
     finally:
         await admin.close()
     db = await asyncpg.connect(
