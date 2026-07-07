@@ -52,6 +52,11 @@ def build_pool() -> AgentPool:
         default_llm=openai.LLM(model="gpt-4.1-mini"),
         # Deepgram Aura TTS reads DEEPGRAM_API_KEY, the same funded key as the STT.
         default_tts=deepgram.TTS(model="aura-2-thalia-en"),
+        # Register the worker under this name (openrtc >=0.18) so LiveKit's explicit
+        # dispatch reaches it: the frontend token requests roomConfig.agents[].agentName
+        # = AGENT_NAME, and SIP dispatch rules name it too. Without this the worker
+        # registers with an empty agent_name and an explicit dispatch never lands.
+        agent_name=config.AGENT_NAME,
         isolation=_isolation(),
         max_concurrent_sessions=int(os.getenv("AGENT_MAX_CONCURRENT_SESSIONS", "50")),
         drain_timeout=300,

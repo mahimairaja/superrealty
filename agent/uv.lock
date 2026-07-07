@@ -2199,15 +2199,15 @@ realtime = [
 
 [[package]]
 name = "openrtc"
-version = "0.17.0"
+version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "livekit-agents", extra = ["openai", "silero", "turn-detector"] },
     { name = "watchfiles" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/f2/c382aad6e7d6d6f248b71241fd2d508301e53715aa7ee4b5b393e686152a/openrtc-0.17.0.tar.gz", hash = "sha256:2202530ba89fb61f788e4bde8a6e8117ec6d4825195aca33bf517ec90f98f6df", size = 2035170, upload-time = "2026-07-05T06:26:42.944Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/f3/cf87b88ff9cf6aa17a554c03bf62617579be2bb52d01884222e08529ad60/openrtc-0.18.0.tar.gz", hash = "sha256:7bc133e4104526fcd62da7973de92a32327e24a9517c926b891c5a5f8f522f35", size = 2043583, upload-time = "2026-07-06T19:27:42.833Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/2b/64c012066348b8d995731eeac97645fbbaddd3a8ce6a73399fbd2760f3b6/openrtc-0.17.0-py3-none-any.whl", hash = "sha256:f2223b8f6e4d10119c54506b69133c691ad3aebeeaa256162fafe0c9d7451689", size = 129561, upload-time = "2026-07-05T06:26:41.586Z" },
+    { url = "https://files.pythonhosted.org/packages/92/4e/6e562b8a2b9143912369c7fa9a60af8adcc8453ad272929c151c97236a8d/openrtc-0.18.0-py3-none-any.whl", hash = "sha256:450b0a730e9a399db243481aa718e82866c670ecafdec29b0634c48e804d3cf6", size = 130479, upload-time = "2026-07-06T19:27:41.325Z" },
 ]
 
 [[package]]
@@ -3468,7 +3468,7 @@ requires-dist = [
     { name = "livekit-plugins-deepgram", specifier = ">=1.6.0" },
     { name = "livekit-plugins-google", specifier = ">=1.6.0" },
     { name = "livekit-plugins-silero", specifier = ">=1.6.0" },
-    { name = "openrtc", specifier = ">=0.11.0" },
+    { name = "openrtc", specifier = ">=0.18.0" },
     { name = "pydantic-settings", specifier = ">=2.14.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "sentry-sdk", specifier = ">=2.56.0" },

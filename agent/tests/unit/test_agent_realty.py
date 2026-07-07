@@ -117,7 +117,9 @@ def test_format_listings_answer_counts_prices_and_overflow():
     out = _format_listings_answer(homes, total=7)
     assert out.startswith("I have 7 listings")
     assert "$500,000" in out  # grounded, formatted price
-    assert "2 more" in out  # 7 matched, 5 named, 2 more offered
+    assert (
+        "all 7 on your screen" in out
+    )  # 7 matched, 6 named, the rest pushed to screen
 
 
 def test_format_listings_answer_subset_missing_price_and_empty():
