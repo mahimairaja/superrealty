@@ -1,9 +1,9 @@
 from src.agents.agent_realty import (
     RealtyAgent,
-    _filter_by_criteria,
     _find_listing,
     _format_listings_answer,
 )
+from src.agents.listing_filters import ListingSearchFilters
 from src.prompts.instructions import REALTOR_INSTRUCTIONS
 
 CATALOG = [
@@ -75,7 +75,7 @@ async def test_listings_answer_is_grounded_in_the_catalog_and_never_recalls():
         ]
     )
     agent = RealtyAgent(realtor="Riley", api=api)
-    out = await agent._listings_answer("3 bedroom in Sarnia")
+    out = await agent._listings_answer(ListingSearchFilters(min_beds=3, area="Sarnia"))
     assert (
         "88 Maple Ridge Drive, Sarnia" in out
     )  # verbatim from the catalog, not invented
@@ -85,7 +85,7 @@ async def test_listings_answer_is_grounded_in_the_catalog_and_never_recalls():
 
 async def test_listings_answer_degrades_without_a_catalog():
     agent = RealtyAgent(realtor="Riley", api=_FakeApi(catalog=[]))
-    out = await agent._listings_answer("anything")
+    out = await agent._listings_answer(ListingSearchFilters())
     assert "trouble" in out.lower()
 
 
@@ -106,17 +106,6 @@ def test_format_listings_answer_subset_missing_price_and_empty():
     assert "follow up" in _format_listings_answer([], total=9).lower()
 
 
-def test_filter_by_criteria_parses_bedrooms():
-    out = _filter_by_criteria(CATALOG, "3 bedroom home in Sarnia")
-    assert {h["code"] for h in out} == {"RR-102", "RR-103"}  # >= 3 beds
-
-
-def test_filter_by_criteria_falls_back_to_full_catalog():
-    assert _filter_by_criteria(CATALOG, "all current listings") == CATALOG
-    # a bed count nothing matches also falls back rather than showing nothing
-    assert _filter_by_criteria(CATALOG, "9 bedroom estate") == CATALOG
-
-
 def test_find_listing_by_code_then_address():
     assert _find_listing(CATALOG, "RR-102")["code"] == "RR-102"
     assert _find_listing(CATALOG, "maple ridge")["code"] == "RR-102"
@@ -131,7 +120,7 @@ async def test_emit_shortlist_pushes_filtered_matches(monkeypatch):
         pushed.append((event_type, data))
 
     monkeypatch.setattr(agent, "_push_event", fake_push)
-    await agent._emit_shortlist("3 bed in Sarnia")
+    await agent._emit_shortlist(ListingSearchFilters(min_beds=3))
     assert pushed[0][0] == "shortlist"
     assert {m["code"] for m in pushed[0][1]["matches"]} == {"RR-102", "RR-103"}
 
