@@ -19,6 +19,9 @@ class Config(BaseSettings):
 
     # Hard cap on call length in seconds (cost guard for STT/LLM/TTS).
     AGENT_MAX_CALL_SECONDS: int = 600
+    # Timezone for the assistant's date reasoning ("today", "tomorrow"). Matches the
+    # realtor's locale; the backend also books in the realtor's timezone.
+    TIMEZONE: str = "America/Toronto"
     # Backend base URL the agent's tools call (the realty memory/recall API).
     BACKEND_URL: str = "http://localhost:8000"
 

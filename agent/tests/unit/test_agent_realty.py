@@ -142,6 +142,25 @@ async def test_push_event_is_a_noop_without_a_room():
     await agent._push_event("shortlist", {"matches": []})
 
 
+def test_today_line_states_the_current_date():
+    # #6: the system prompt carries today's date so "tomorrow"/"next Tuesday" resolve.
+    from datetime import datetime
+
+    agent = RealtyAgent(api=_FakeApi())
+    line = agent._today_line()
+    assert "today is" in line.lower()
+    assert str(datetime.now().year) in line
+
+
+def test_today_line_survives_a_bad_timezone(monkeypatch):
+    # A misconfigured TIMEZONE must fall back to local time, never break the call.
+    import src.agents.agent_realty as m
+
+    monkeypatch.setattr(m.config, "TIMEZONE", "Not/AZone")
+    line = RealtyAgent(api=_FakeApi())._today_line()
+    assert "today is" in line.lower()
+
+
 def test_persona_sets_realtor_name_and_personalizes_opener():
     agent = RealtyAgent(
         api=_FakeApi(), persona={"name": "Morgan Bell", "agency": "Bluewater Homes"}

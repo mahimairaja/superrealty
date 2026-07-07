@@ -4,6 +4,25 @@ import src.services.api_client as api_client_mod
 from src.services.api_client import BackendApiClient
 
 
+async def test_shared_client_is_reused_across_requests_and_closed():
+    # #11: one AsyncClient (connection pool) for the call's lifetime, created lazily
+    # and reused across requests, then released on aclose. Was one client per request.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"found": False})
+
+    client = BackendApiClient(
+        base_url="http://test", transport=httpx.MockTransport(handler)
+    )
+    assert client._client is None  # not created until the first request
+    await client.get_buyer("+15195550100")
+    first = client._client
+    assert first is not None
+    await client.get_buyer("+15195550101")
+    assert client._client is first  # same pool reused, not re-created per request
+    await client.aclose()
+    assert client._client is None and first.is_closed
+
+
 async def test_tenant_and_agent_secret_headers_are_sent(monkeypatch):
     # The agent presents its tenant (from the room name) and the shared secret so the
     # backend's tenant-scoped endpoints (recall, buyers) trust the asserted tenant.

@@ -14,7 +14,9 @@ import logging
 import re
 import uuid
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import voicegateway
 from livekit.agents import Agent, RunContext, function_tool, get_job_context
@@ -170,6 +172,16 @@ class RealtyAgent(Agent):
             "home they are looking for."
         )
 
+    def _today_line(self) -> str:
+        """A system-prompt line stating today's date so the model resolves relative
+        dates ("tomorrow", "next Tuesday"). Uses the configured timezone (the realtor's
+        locale); falls back to naive local time if the zone name is unknown."""
+        try:
+            now = datetime.now(ZoneInfo(config.TIMEZONE))
+        except Exception:  # noqa: BLE001  (unknown tz -> local time is still useful)
+            now = datetime.now()
+        return f"\n\nFor date reasoning, today is {now:%A, %B} {now.day}, {now.year}."
+
     async def _recall_returning_buyer(self) -> str | None:
         """Best-effort: pull what we remember about this caller (by phone) so the assistant can
         welcome them back and reuse prior criteria. Recalls once per call; None if new/unknown.
@@ -199,6 +211,12 @@ class RealtyAgent(Agent):
         # Per-call setup, moved here from the old entrypoint: the AgentPool uses one
         # universal entrypoint, so each call resolves its own realtor post-connect.
         await self._resolve_call_context()
+        # System prompt = persona (answer in the realtor's name) + today's date (so
+        # "tomorrow" / "next Tuesday" resolve). Set here, after resolve, so date
+        # grounding holds even when the persona fetch failed.
+        await self.update_instructions(
+            realtor_instructions(self._persona or None) + self._today_line()
+        )
         # Cap call length so a stuck or abusive session cannot run up STT/LLM/TTS cost.
         self._max_call_task = asyncio.create_task(self._hang_up_max_duration())
         # A SIP caller's number is known at connect, so we can recognize a returning buyer
@@ -244,7 +262,6 @@ class RealtyAgent(Agent):
                 persona = await self._api.get_realtor()
                 self._persona = persona or {}
                 self._realtor = self._persona.get("name") or config.AGENT_NAME
-                await self.update_instructions(realtor_instructions(persona))
             except Exception as exc:  # noqa: BLE001  (persona is best-effort)
                 logger.warning("realtor persona fetch failed: %s", exc)
 
@@ -268,9 +285,13 @@ class RealtyAgent(Agent):
         if self._log_usage_summary is not None:
             self._log_usage_summary()
         if self._api is not None:
-            await post_call_log(
-                self._api, get_job_context().room.name, buyer_phone=self.last_phone
-            )
+            try:
+                await post_call_log(
+                    self._api, get_job_context().room.name, buyer_phone=self.last_phone
+                )
+            finally:
+                # Release the shared HTTP connection pool for this call (#11).
+                await self._api.aclose()
 
     async def _hang_up_max_duration(self) -> None:
         try:

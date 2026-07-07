@@ -35,6 +35,10 @@ class BackendApiClient:
         # bookings) require them, the widget-guarded ones (availability, close) ignore them.
         self._tenant_id = tenant_id
         self._agent_secret = config.AGENT_SERVICE_SECRET
+        # One AsyncClient (connection pool) for this client's lifetime instead of a
+        # fresh one per request. Created lazily on first use; closed by ``aclose`` on
+        # call teardown (RealtyAgent.on_exit).
+        self._client: httpx.AsyncClient | None = None
 
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {}
@@ -44,20 +48,32 @@ class BackendApiClient:
             headers["X-Agent-Secret"] = self._agent_secret
         return headers
 
+    def _http(self) -> httpx.AsyncClient:
+        """The shared client for this call, created once on first request."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=20.0, transport=self._transport)
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the shared connection pool. Best-effort, called on call teardown."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
     async def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
-            resp = await client.post(
-                f"{self._base_url}{path}", json=body, headers=self._headers()
-            )
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
+        resp = await self._http().post(
+            f"{self._base_url}{path}", json=body, headers=self._headers()
+        )
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
         return data
 
     async def _get(self, path: str) -> dict[str, Any]:
-        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
-            resp = await client.get(f"{self._base_url}{path}", headers=self._headers())
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
+        resp = await self._http().get(
+            f"{self._base_url}{path}", headers=self._headers()
+        )
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
         return data
 
     async def get_realtor(self) -> dict[str, Any]:
@@ -77,12 +93,11 @@ class BackendApiClient:
         """The realtor's structured listing catalog (address/price/beds/image_url), used to
         push house cards to the caller's screen during a call.
         """
-        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
-            resp = await client.get(
-                f"{self._base_url}/api/v1/listings/catalog", headers=self._headers()
-            )
-            resp.raise_for_status()
-            data: list[dict[str, Any]] = resp.json()
+        resp = await self._http().get(
+            f"{self._base_url}/api/v1/listings/catalog", headers=self._headers()
+        )
+        resp.raise_for_status()
+        data: list[dict[str, Any]] = resp.json()
         return data
 
     async def capture_lead(self, buyer: dict[str, Any]) -> dict[str, Any]:
@@ -106,13 +121,12 @@ class BackendApiClient:
 
     async def forget_buyer(self, phone: str) -> dict[str, Any]:
         """Forget a buyer on request (removes their Cognee dataset)."""
-        async with httpx.AsyncClient(timeout=20.0, transport=self._transport) as client:
-            resp = await client.delete(
-                f"{self._base_url}/api/v1/buyers/{quote(phone, safe='')}",
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
+        resp = await self._http().delete(
+            f"{self._base_url}/api/v1/buyers/{quote(phone, safe='')}",
+            headers=self._headers(),
+        )
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
         return data
 
     async def close_call(self, room: str, payload: dict[str, Any]) -> dict[str, Any]:
