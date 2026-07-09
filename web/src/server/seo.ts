@@ -78,11 +78,30 @@ function getServiceJsonLd(): object {
   };
 }
 
+const PRODUCT_LD = {
+  '@type': 'Product',
+  name: 'Super Realty',
+  description: 'An always-on AI voice receptionist for solo real estate agents.',
+  brand: { '@type': 'Brand', name: 'Super Realty' },
+  url: 'https://superrealty.mahimai.ca',
+};
+
+const FAQ_LD = {
+  '@type': 'FAQPage',
+  mainEntity: [
+    ['Does it sound like a robot?', 'No. It answers in your synthesized voice and only ever talks about homes you have connected, never a generic script.'],
+    ['Is it really mine?', 'Yes. I build it, hand it over, and you own it. No subscription that never ends.'],
+    ['What does it cost?', 'You pay for the build, not a monthly trap. Book a call and I will scope it to your business.'],
+    ['How long to build?', 'Weeks, not months. It onboards from your website, so most of the setup is already done.'],
+    ['Does it work after hours?', 'That is the point. It answers first ring, day or night, weekends included.'],
+  ].map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+};
+
 function buildJsonLd(pathname: string): string {
   const graph: object[] = [getWebSiteJsonLd(), getOrganizationJsonLd()];
 
   if (pathname === '/') {
-    graph.push(getServiceJsonLd());
+    graph.push(getServiceJsonLd(), PRODUCT_LD, FAQ_LD);
   }
 
   const ld = { '@context': 'https://schema.org', '@graph': graph };
