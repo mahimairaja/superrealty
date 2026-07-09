@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Navigation from "../components/Navigation.astro";
 import Footer from "../components/Footer.astro";
+import CalEmbed from "../components/islands/CalEmbed.tsx";
 
 const PAINS = [
   "You are at a showing when the phone rings. The buyer does not leave a message; they call the next agent.",
@@ -126,9 +127,19 @@ const FAQS = [
     <section id="book" class="mx-auto max-w-4xl px-6 py-20 text-center">
       <h2 class="text-3xl font-semibold tracking-tight">Book a 30-minute call.</h2>
       <p class="mx-auto mt-3 max-w-xl text-gray-600">See what an AI receptionist could do for your business. Or email <a class="text-accent hover:underline" href="mailto:contact@mahimai.ca">contact@mahimai.ca</a>.</p>
-      <div id="cal-embed" class="mt-8"></div>
+      <div class="mt-8">
+        <CalEmbed client:visible />
+      </div>
     </section>
   </main>
 
   <Footer />
+
+  <script>
+    const track = (name: string) =>
+      (window as any).posthog?.capture?.(name);
+    document.querySelectorAll('a[href="#book"], a[href^="mailto:"]').forEach((el) => {
+      el.addEventListener("click", () => track(el.getAttribute("href") === "#book" ? "book_call_click" : "email_click"));
+    });
+  </script>
 </Layout>

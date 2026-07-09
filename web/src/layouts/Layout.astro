@@ -64,5 +64,9 @@ const seo = seoProp ?? getPageSeo(Astro.url.pathname);
   </head>
   <body class="bg-white text-gray-900 antialiased">
     <slot />
+    <script>
+      import "../scripts/bootstrap.ts";
+      import "../scripts/reveal.ts";
+    </script>
   </body>
 </html>
