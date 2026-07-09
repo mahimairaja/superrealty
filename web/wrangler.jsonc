@@ -3,5 +3,6 @@
   "main": "./dist/_worker.js/index.js",
   "compatibility_date": "2026-02-06",
   "compatibility_flags": ["nodejs_compat"],
-  "assets": { "binding": "ASSETS", "directory": "./dist" }
+  "assets": { "binding": "ASSETS", "directory": "./dist" },
+  "routes": [{ "pattern": "superrealty.mahimai.ca", "custom_domain": true }]
 }
