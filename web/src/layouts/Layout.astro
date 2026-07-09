@@ -1,0 +1,68 @@
+---
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import { getPageSeo, type PageSeo } from '../server/seo';
+
+interface Props {
+  // When provided, use it verbatim. Otherwise derive from the path.
+  seo?: PageSeo;
+}
+
+const { seo: seoProp } = Astro.props;
+const seo = seoProp ?? getPageSeo(Astro.url.pathname);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="color-scheme" content="light" />
+    <meta name="author" content="Mahimai" />
+    <meta name="robots" content={seo.known ? 'index, follow' : 'noindex, follow'} />
+
+    <title>{seo.title}</title>
+    <meta name="description" content={seo.description} />
+    <link rel="canonical" href={seo.canonical} />
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content={seo.ogType} />
+    <meta property="og:url" content={seo.canonical} />
+    <meta property="og:title" content={seo.title} />
+    <meta property="og:description" content={seo.description} />
+    <meta property="og:image" content={seo.ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={seo.ogImageAlt} />
+    <meta property="og:site_name" content="Super Realty" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mahimaidev" />
+    <meta name="twitter:creator" content="@mahimaidev" />
+    <meta name="twitter:url" content={seo.canonical} />
+    <meta name="twitter:title" content={seo.title} />
+    <meta name="twitter:description" content={seo.description} />
+    <meta name="twitter:image" content={seo.ogImage} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <script type="application/ld+json" is:inline set:html={seo.jsonLd} />
+
+    <ClientRouter />
+  </head>
+  <body class="bg-white text-gray-900 antialiased">
+    <slot />
+  </body>
+</html>

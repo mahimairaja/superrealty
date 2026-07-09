@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /.well-known/
+Disallow: /api/
+
+Sitemap: https://superrealty.mahimai.ca/sitemap.xml

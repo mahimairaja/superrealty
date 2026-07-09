@@ -1,0 +1,15 @@
+# Security headers for static assets served directly by the ASSETS binding
+# (they bypass the Worker, so middleware cannot set these). SSR page and
+# endpoint responses get the same headers plus any report-only CSP from
+# middleware. The @astrojs/cloudflare adapter appends its immutable Cache-Control
+# rule for /_astro/* to this file at build.
+/*
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  Permissions-Policy: microphone=(self), camera=(), geolocation=(), payment=()
+
+# Content-hashed bundles are safe to cache forever.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
