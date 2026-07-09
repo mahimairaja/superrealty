@@ -2,12 +2,133 @@
 import Layout from "../layouts/Layout.astro";
 import Navigation from "../components/Navigation.astro";
 import Footer from "../components/Footer.astro";
+
+const PAINS = [
+  "You are at a showing when the phone rings. The buyer does not leave a message; they call the next agent.",
+  "Leads go cold in minutes. Answer in five and you usually win; answer in an hour and the lead is gone.",
+  "The same three questions all day: is it still available, what is the price, can I see it this weekend.",
+  "There is only one of you. You cannot be on the phone and at the open house at the same time.",
+];
+
+const FEATURES = [
+  { title: "Answers in your name", body: "Picks up every call, day or night, in your voice. Qualifies budget, timeline, financing, and area." },
+  { title: "Onboards from one URL", body: "Paste your website and it reads your listings and your persona for you to review before it goes live." },
+  { title: "Remembers every buyer", body: "A returning caller is greeted by name and picked up where they left off. Memory that carries across calls." },
+  { title: "Books the showing", body: "Checks your calendar and books, straight onto it, with the details texted to you." },
+  { title: "Hands you the lead", body: "When the call ends it texts the buyer and outcome to your phone, so you follow up while it is warm." },
+];
+
+const STEPS = [
+  { n: "1", title: "Tell me about your calls", body: "A quick call, no tech talk." },
+  { n: "2", title: "I build your agent", body: "Trained on your listings and your voice. Live in weeks, not months." },
+  { n: "3", title: "It is yours", body: "You own it. No monthly lock-in, no long contracts." },
+];
+
+const FAQS = [
+  { q: "Does it sound like a robot?", a: "No. It answers in your synthesized voice and only ever talks about homes you have connected, never a generic script." },
+  { q: "Is it really mine?", a: "Yes. I build it, hand it over, and you own it. No subscription that never ends." },
+  { q: "What does it cost?", a: "You pay for the build, not a monthly trap. Book a call and I will scope it to your business." },
+  { q: "How long to build?", a: "Weeks, not months. It onboards from your website, so most of the setup is already done." },
+  { q: "Does it work after hours?", a: "That is the point. It answers first ring, day or night, weekends included." },
+];
 ---
 <Layout>
   <Navigation />
-  <main class="mx-auto max-w-6xl px-6 py-24">
-    <h1 class="text-4xl font-semibold tracking-tight text-ink">Super Realty</h1>
-    <p class="mt-4 text-lg text-gray-600">Landing page coming together.</p>
+
+  <main>
+    <!-- Hero -->
+    <section class="relative overflow-hidden" style="background-image: radial-gradient(60% 60% at 50% 0%, rgba(56,182,203,0.16), transparent 70%);">
+      <div class="mx-auto max-w-4xl px-6 pt-20 pb-16 text-center">
+        <span class="badge"><span class="shiny-text">Always-on voice receptionist with a memory</span></span>
+        <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-6xl">
+          Never lose a lead to a <span class="bg-gradient-to-r from-[#15788a] to-[#38b6cb] bg-clip-text text-transparent">missed call</span>.
+        </h1>
+        <p class="mx-auto mt-5 max-w-2xl text-lg text-gray-600">
+          Super Realty is an AI receptionist for solo real estate agents. It answers every call in your name, qualifies the buyer, books the showing, and remembers every caller across calls.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <a href="#book" class="btn-primary btn-shine">Book a call</a>
+          <a href="#how" class="btn-secondary">See how it works</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Problem -->
+    <section class="border-y border-gray-200 bg-gray-50">
+      <div class="mx-auto max-w-6xl px-6 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Every missed call is a missed commission.</h2>
+        <ul class="mt-8 grid gap-3 sm:grid-cols-2">
+          {PAINS.map((p) => (
+            <li class="card px-4 py-3 text-sm text-gray-600">{p}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <!-- What it does -->
+    <section class="mx-auto max-w-6xl px-6 py-16">
+      <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">A digital you that never lets a lead slip.</h2>
+      <div class="mt-10 grid gap-4 md:grid-cols-3">
+        {FEATURES.map((f, i) => (
+          <div class="card card-hover p-5" data-reveal style={`--reveal-delay: ${i * 0.08}s`}>
+            <h3 class="text-base font-semibold tracking-tight text-ink">{f.title}</h3>
+            <p class="mt-2 text-sm text-gray-600">{f.body}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- How it works (dark band) -->
+    <section id="how" class="bg-ink text-white">
+      <div class="mx-auto max-w-6xl px-6 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">How it works</h2>
+        <div class="mt-10 grid gap-6 md:grid-cols-3">
+          {STEPS.map((s) => (
+            <div>
+              <div class="text-sm font-semibold text-accent">{s.n}</div>
+              <h3 class="mt-2 text-lg font-semibold">{s.title}</h3>
+              <p class="mt-2 text-sm text-white/70">{s.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Why trust it -->
+    <section class="mx-auto max-w-6xl px-6 py-14">
+      <ul class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600">
+        <li>You own it</li>
+        <li>No monthly lock-in</li>
+        <li>Open-source stack</li>
+        <li>Built by one developer who ships</li>
+      </ul>
+    </section>
+
+    <!-- FAQ -->
+    <section class="border-t border-gray-200 bg-gray-50">
+      <div class="mx-auto max-w-3xl px-6 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Questions agents ask</h2>
+        <div class="mt-8 flex flex-col gap-2">
+          {FAQS.map((f) => (
+            <details class="group card px-4 py-3">
+              <summary class="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-ink">
+                {f.q}
+                <span class="text-gray-400 transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <p class="mt-2 text-sm text-gray-600">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Book a call (Cal embed added in Task 4) -->
+    <section id="book" class="mx-auto max-w-4xl px-6 py-20 text-center">
+      <h2 class="text-3xl font-semibold tracking-tight">Book a 30-minute call.</h2>
+      <p class="mx-auto mt-3 max-w-xl text-gray-600">See what an AI receptionist could do for your business. Or email <a class="text-accent hover:underline" href="mailto:contact@mahimai.ca">contact@mahimai.ca</a>.</p>
+      <div id="cal-embed" class="mt-8"></div>
+    </section>
   </main>
+
   <Footer />
 </Layout>
