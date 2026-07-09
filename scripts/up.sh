@@ -40,6 +40,7 @@ cat <<'EOF'
 
 RealtyRecall is up:
   Frontend       http://localhost:5173
+  Seeded demo    http://localhost:5173/call/demo   (the seeded buyer line)
   API docs       http://localhost:8000/docs
   Neo4j browser  http://localhost:7474   (neo4j / neo4jpassword)
 

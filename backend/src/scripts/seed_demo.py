@@ -15,10 +15,15 @@ green instead of failing on the seed step.
 
 import asyncio
 import os
+from typing import Any
 
-REALTOR = {"name": "Riley", "email": "riley@example.com"}
+# The demo data is scoped to this tenant. Reach it in a local call at
+# http://localhost:5173/call/demo (the room name carries the tenant to the agent).
+TENANT_ID = "demo"
 
-LISTINGS = [
+REALTOR: dict[str, Any] = {"name": "Riley", "email": "riley@example.com"}
+
+LISTINGS: list[dict[str, Any]] = [
     {
         "code": "S1",
         "address": "123 Maple Street, Sarnia",
@@ -51,7 +56,7 @@ LISTINGS = [
     },
 ]
 
-BUYER = {
+BUYER: dict[str, Any] = {
     "phone": "+1-519-555-0100",
     "name": "Dana",
     "criteria": {"area": "Sarnia", "minBeds": 3, "maxPrice": 500000},
@@ -70,11 +75,11 @@ async def seed() -> str:
     from src.memory.store import get_memory_store
 
     store = get_memory_store()
-    await store.add_listings(REALTOR, LISTINGS)
-    await store.upsert_buyer(BUYER)
+    await store.add_listings(TENANT_ID, REALTOR, LISTINGS)
+    await store.upsert_buyer(TENANT_ID, BUYER)
     return (
-        f"Seeded {len(LISTINGS)} Sarnia listings and 1 buyer "
-        f"for realtor {REALTOR['name']}."
+        f"Seeded {len(LISTINGS)} Sarnia listings and 1 buyer for realtor "
+        f"{REALTOR['name']} under tenant '{TENANT_ID}' (try /call/{TENANT_ID})."
     )
 
 
