@@ -83,7 +83,8 @@ const PRODUCT_LD = {
   name: 'Super Realty',
   description: 'An always-on AI voice receptionist for solo real estate agents.',
   brand: { '@type': 'Brand', name: 'Super Realty' },
-  url: 'https://superrealty.mahimai.ca',
+  url: SITE_URL,
+  offers: { '@type': 'Offer', url: `${SITE_URL}/#book` },
 };
 
 const FAQ_LD = {
