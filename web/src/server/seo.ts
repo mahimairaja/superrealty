@@ -90,11 +90,12 @@ const PRODUCT_LD = {
 const FAQ_LD = {
   '@type': 'FAQPage',
   mainEntity: [
-    ['Does it sound like a robot?', 'No. It answers in your synthesized voice and only ever talks about homes you have connected, never a generic script.'],
-    ['Is it really mine?', 'Yes. I build it, hand it over, and you own it. No subscription that never ends.'],
-    ['What does it cost?', 'You pay for the build, not a monthly trap. Book a call and I will scope it to your business.'],
-    ['How long to build?', 'Weeks, not months. It onboards from your website, so most of the setup is already done.'],
-    ['Does it work after hours?', 'That is the point. It answers first ring, day or night, weekends included.'],
+    ['Is it really free?', 'Yes. Super Realty is open source under the MIT license. Clone it, run it, and own it. There is no company to pay and no subscription.'],
+    ['What does it cost to run?', 'Only your own API usage: an OpenAI key, a Deepgram key, and a phone number if you want inbound calls. You pay those providers directly, nothing to us.'],
+    ['Do I need to be technical?', 'Some comfort with Docker helps: it is one command, make up. If you would rather not touch a terminal, reach out and I can set it up for you.'],
+    ["Is my data mine?", "Completely. It runs on your own infrastructure with your own keys. Your buyers and calls never touch anyone else's servers."],
+    ['Does it sound like a robot?', 'No. It answers in a natural voice, in your name, and only ever describes homes you have connected. Never a generic script.'],
+    ['Does it work after hours?', 'That is the whole point. It answers first ring, day or night, weekends included, when most calls actually come in.'],
   ].map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
 };
 
