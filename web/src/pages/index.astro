@@ -60,18 +60,17 @@ const FAQS = [
           </div>
           <p class="mt-4 text-sm text-gray-500">Open source, MIT. Your keys, your data, your infrastructure. No subscription.</p>
         </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <svg viewBox="0 0 320 220" class="w-full text-accent" role="img" aria-label="A memory graph connecting buyers to homes">
-            <g stroke="currentColor" stroke-width="1.5" opacity="0.35">
-              <line x1="60" y1="60" x2="160" y2="40" /><line x1="160" y1="40" x2="250" y2="70" />
-              <line x1="60" y1="60" x2="110" y2="140" /><line x1="110" y1="140" x2="210" y2="160" />
-              <line x1="160" y1="40" x2="210" y2="160" /><line x1="110" y1="140" x2="60" y2="190" />
-            </g>
-            <circle cx="60" cy="60" r="10" fill="currentColor" /><circle cx="160" cy="40" r="8" fill="#9ca3af" />
-            <circle cx="250" cy="70" r="12" fill="currentColor" /><circle cx="110" cy="140" r="8" fill="#9ca3af" />
-            <circle cx="210" cy="160" r="10" fill="currentColor" /><circle cx="60" cy="190" r="7" fill="#9ca3af" />
-          </svg>
-          <p class="mt-3 text-center text-xs text-gray-500">Every caller and home, remembered and matched. Powered by a Cognee knowledge graph.</p>
+        <div class="relative">
+          <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-cyan-900/10">
+            <div class="flex items-center gap-1.5 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
+              <span class="h-2.5 w-2.5 rounded-full bg-green-400"></span>
+              <span class="ml-3 truncate font-mono text-xs text-gray-400">localhost:5173/overview</span>
+            </div>
+            <img src="/screenshots/overview.png" width="1440" height="900" loading="eager" decoding="async" alt="The Super Realty dashboard: the assistant's persona onboarded from a website, the buyer call link, and the Cognee memory graph." class="w-full" />
+          </div>
+          <p class="mt-3 text-center text-xs text-gray-500">The real dashboard, onboarded from one website URL. Powered by a Cognee knowledge graph.</p>
         </div>
       </div>
     </section>
@@ -101,6 +100,30 @@ const FAQS = [
             <p class="mt-2 text-sm text-gray-600">{f.body}</p>
           </div>
         ))}
+      </div>
+    </section>
+
+    <!-- Product showcase -->
+    <section class="border-t border-gray-200 bg-gray-50">
+      <div class="mx-auto max-w-6xl px-6 py-16">
+        <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">See the whole thing, running.</h2>
+        <p class="mt-3 max-w-2xl text-gray-600">Not a mockup. This is the actual dashboard after pasting one website URL, with real listings and a real buyer line.</p>
+        <div class="mt-10 grid gap-6 lg:grid-cols-2">
+          <figure class="card overflow-hidden p-0" data-reveal>
+            <img src="/screenshots/listings.png" width="1440" height="900" loading="lazy" decoding="async" alt="The Super Realty listings dashboard: a grid of connected homes with photos, prices, and details." class="w-full border-b border-gray-100" />
+            <figcaption class="px-5 py-4">
+              <h3 class="text-base font-semibold text-ink">Your listings, connected</h3>
+              <p class="mt-1 text-sm text-gray-600">Every home the assistant can talk about, read straight from your site. It only ever recommends these, and never invents a listing.</p>
+            </figcaption>
+          </figure>
+          <figure class="card overflow-hidden p-0" data-reveal style="--reveal-delay: 0.08s">
+            <img src="/screenshots/call.png" width="1440" height="900" loading="lazy" decoding="async" alt="The Super Realty buyer call screen, where a caller talks to the assistant and is remembered next time." class="w-full border-b border-gray-100" />
+            <figcaption class="px-5 py-4">
+              <h3 class="text-base font-semibold text-ink">A buyer line that remembers</h3>
+              <p class="mt-1 text-sm text-gray-600">Share one link or forward your number. Buyers reach an assistant scoped to your homes, greeted by name the next time they call.</p>
+            </figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 
