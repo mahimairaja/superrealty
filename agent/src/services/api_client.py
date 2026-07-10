@@ -37,7 +37,7 @@ class BackendApiClient:
         self._agent_secret = config.AGENT_SERVICE_SECRET
         # One AsyncClient (connection pool) for this client's lifetime instead of a
         # fresh one per request. Created lazily on first use; closed by ``aclose`` on
-        # call teardown (RealtyAgent.on_exit).
+        # call teardown (CallContext.close).
         self._client: httpx.AsyncClient | None = None
 
     def _headers(self) -> dict[str, str]:
@@ -139,3 +139,18 @@ class BackendApiClient:
     async def close_call(self, room: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Persist the call log and fold the conversation into permanent memory."""
         return await self._post(f"/api/v1/calls/{room}/close", payload)
+
+    async def report_agent_state(
+        self,
+        room: str,
+        active: str,
+        action: str,
+        from_agent: str | None = None,
+    ) -> None:
+        """Report which specialist now holds this call to the live graph. Best-effort: the
+        caller (CallContext.report_state) fires this in the background and swallows failures,
+        so a down backend never affects the voice turn."""
+        await self._post(
+            "/api/v1/agent-state",
+            {"room": room, "active": active, "action": action, "from": from_agent},
+        )

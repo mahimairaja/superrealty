@@ -9,7 +9,7 @@ from livekit.plugins.turn_detector.multilingual import (  # noqa: F401 (openrtc 
 )
 from openrtc import AgentPool
 
-from src.agents.agent_realty import RealtyAgent
+from src.agents.concierge_agent import ConciergeAgent
 from src.core.config import config
 
 logger = logging.getLogger("agent")
@@ -38,12 +38,12 @@ def _isolation() -> Literal["coroutine", "process"]:
 
 
 def build_pool() -> AgentPool:
-    """Construct the openrtc pool that hosts RealtyAgent.
+    """Construct the openrtc pool that hosts ConciergeAgent.
 
     One worker runs many concurrent calls as asyncio tasks (coroutine isolation),
     lifting the box from a handful of calls to ~50. openrtc shares one Silero VAD +
     turn detector across every session (prewarmed once per worker), so the per-call
-    setup that used to live in the entrypoint now runs in RealtyAgent.on_enter
+    setup that used to live in the entrypoint now runs in ConciergeAgent.on_enter
     (post-connect, where the participant and room are available). Set
     AGENT_ISOLATION=process for hard per-call crash isolation.
     """
@@ -64,7 +64,7 @@ def build_pool() -> AgentPool:
         # slow Cognee query starving the shared loop is visible per session.
         enable_introspection=True,
         slow_session_threshold_ms=50.0,
-        # Hot reload for dev only (edit RealtyAgent instructions/tools, swap live
+        # Hot reload for dev only (edit ConciergeAgent instructions/tools, swap live
         # calls on their next turn). Off in prod: a redeploy is the prod path.
         enable_hot_reload=os.getenv("AGENT_HOT_RELOAD") == "1",
         # Blue-green: tag the pool with the deploy version so a rollout lets
@@ -82,10 +82,10 @@ def build_pool() -> AgentPool:
         # Per-tenant provider tiers also assume a static tenant set, which does
         # not fit dynamic realtors. See LOOP_PROGRESS for the follow-up.
     )
-    # greeting=None: on_enter owns the opening reply (recording disclosure + the
-    # realtor's persona + returning-caller recall). One agent, addressed by the
-    # worker's agent_name; the room name carries the realtor (tenant).
-    pool.add(config.AGENT_NAME, RealtyAgent, greeting=None)
+    # greeting=None: the Concierge's on_enter owns the opening reply (recording disclosure +
+    # persona opener + returning-caller recall) and the one-time per-call setup. The call
+    # starts on the Concierge; Property and Scheduling are handed off within the same session.
+    pool.add(config.AGENT_NAME, ConciergeAgent, greeting=None)
     return pool
 
 

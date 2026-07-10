@@ -1,10 +1,10 @@
 """Boot smoke: the agent module imports and builds its openrtc pool without a
 microphone, a LiveKit connection, or per-session provider init. Per-call setup
-(tenant, persona, caller, telemetry) now happens in RealtyAgent.on_enter.
+(tenant, persona, caller, telemetry) now happens in ConciergeAgent.on_enter.
 """
 
 import src.agent as agent_module
-from src.agents.agent_realty import RealtyAgent
+from src.agents.concierge_agent import ConciergeAgent
 
 
 def test_agent_boots_as_realty():
@@ -18,10 +18,11 @@ def test_build_pool_constructs_without_livekit():
     assert pool is not None
 
 
-def test_realty_agent_is_arglessly_constructible():
-    # The AgentPool constructs one RealtyAgent per call with no arguments; the
-    # per-call context is filled in on_enter. So an arg-less construction must work.
-    agent = RealtyAgent()
+def test_concierge_agent_is_arglessly_constructible():
+    # The AgentPool constructs one ConciergeAgent per call with no arguments (openrtc
+    # calls agent_cls()), and the per-call context is filled in on_enter. So an arg-less
+    # construction must work.
+    agent = ConciergeAgent()
     assert agent is not None
     # on_enter / on_exit are the per-call lifecycle hooks the pool drives.
     assert hasattr(agent, "on_enter") and hasattr(agent, "on_exit")
