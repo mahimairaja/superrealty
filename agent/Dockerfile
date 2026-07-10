@@ -25,8 +25,13 @@ COPY . .
 # those validate that an API key is present at construction. The build has no
 # secrets, so pass throwaway keys scoped to this RUN only (not persisted as ENV;
 # the real keys come from the runtime environment at `start`).
-RUN DEEPGRAM_API_KEY=build OPENAI_API_KEY=build \
-    uv run python main.py download-files
+# HF_HUB_DISABLE_XET avoids a native SIGABRT some hosts hit (Apple Silicon) when the
+# HuggingFace Xet backend tears down after the turn-detector model downloads. The `|| echo`
+# is a safety net: the model files are cached by the time it could abort, and livekit-agents
+# re-fetches anything missing at runtime, so a nonzero exit here must not fail the build.
+RUN HF_HUB_DISABLE_XET=1 DEEPGRAM_API_KEY=build OPENAI_API_KEY=build \
+    uv run python main.py download-files \
+    || echo "download-files exited nonzero (models cache at runtime); continuing"
 
 # --- Production stage ---
 FROM base
