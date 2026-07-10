@@ -17,6 +17,7 @@ Every missed call is a missed commission: buyers dial the agent who answers firs
 ## What it does
 
 - **Answers in your name and voice.** A voice agent picks up every call, discloses recording, and qualifies budget, timeline, financing, and area. It only ever describes homes you have connected.
+- **A team of specialists, not one bot.** Each call is handled by a Concierge that greets and routes, a Property agent that searches and shows homes, and a Scheduling agent that books, handing off in real time. The Super Agents dashboard shows the handoff live.
 - **Onboards from one URL.** Paste your website; it extracts your listings and infers your persona (name, agency, area, tone) for you to review.
 - **Remembers every buyer, across calls.** Buyers and homes live in a Cognee knowledge graph. A returning caller is greeted by name and picks up where they left off.
 - **Books real showings.** It checks your Cal.com calendar and books, with an idempotency key so a retry never double-books.
