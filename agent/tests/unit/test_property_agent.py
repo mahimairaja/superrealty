@@ -114,9 +114,8 @@ async def test_show_home_pushes_a_property_card(monkeypatch):
 
 
 async def test_to_scheduling_and_to_concierge_share_context():
-    from src.agents.scheduling_agent import SchedulingAgent
-
     from src.agents.concierge_agent import ConciergeAgent
+    from src.agents.scheduling_agent import SchedulingAgent
 
     agent = _property(_FakeApi())
     assert isinstance(await agent.to_scheduling(_Ctx()), SchedulingAgent)
