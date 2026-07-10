@@ -1,3 +1,5 @@
+import json
+
 import httpx
 
 import src.services.api_client as api_client_mod
@@ -221,3 +223,34 @@ async def test_lead_availability_booking_routes():
     assert ("POST", "/api/v1/bookings") in seen
     assert ("DELETE", "/api/v1/buyers/+15195550100") in seen
     assert ("POST", "/api/v1/calls/room-1/close") in seen
+
+
+async def test_report_agent_state_posts_room_active_action_and_from():
+    import httpx
+
+    from src.services.api_client import BackendApiClient
+
+    seen: dict = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        seen["headers"] = dict(request.headers)
+        return httpx.Response(202, json={"ok": True})
+
+    client = BackendApiClient(
+        base_url="http://backend",
+        transport=httpx.MockTransport(handler),
+        tenant_id="org_1",
+    )
+    await client.report_agent_state(
+        "t_org_1_abc", active="property", action="Searching", from_agent="concierge"
+    )
+    assert seen["url"].endswith("/api/v1/agent-state")
+    assert seen["body"] == {
+        "room": "t_org_1_abc",
+        "active": "property",
+        "action": "Searching",
+        "from": "concierge",
+    }
+    assert seen["headers"]["x-tenant-id"] == "org_1"

@@ -10,6 +10,8 @@ from src.api.endpoints.graph import router as graph_router
 from src.api.endpoints.listings import router as listings_router
 from src.api.endpoints.matches import router as matches_router
 from src.api.endpoints.onboard import router as onboard_router
+from src.api.endpoints.openorca import router as openorca_router
+from src.api.endpoints.openorca import state_router as agent_state_router
 from src.api.endpoints.pipeline import router as pipeline_router
 from src.api.endpoints.realtor import router as realtor_router
 from src.api.endpoints.recall import router as recall_router
@@ -34,3 +36,5 @@ routers.include_router(pipeline_router)
 routers.include_router(settings_router)
 routers.include_router(graph_router)
 routers.include_router(insights_router)
+routers.include_router(openorca_router)
+routers.include_router(agent_state_router)

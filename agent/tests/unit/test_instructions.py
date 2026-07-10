@@ -1,12 +1,15 @@
 from src.prompts.instructions import (
     REALTOR_INSTRUCTIONS,
     _clean,
+    concierge_instructions,
+    property_instructions,
     realtor_instructions,
+    scheduling_instructions,
 )
 
 
 def test_base_prompt_does_not_re_greet():
-    # The spoken opener (RealtyAgent.on_enter) owns the greeting + PIPEDA recording
+    # The spoken opener (ConciergeAgent.on_enter) owns the greeting + PIPEDA recording
     # notice. The persistent system prompt must NOT also instruct a greeting, or the
     # model greets a second time (recording notice and all) on the caller's first
     # turn. Regression guard for the observed double greeting.
@@ -73,3 +76,39 @@ def test_partial_persona_only_includes_known_fields():
     assert (
         "tone" not in out.split(REALTOR_INSTRUCTIONS)[0]
     )  # no tone line in the preamble
+
+
+def test_concierge_covers_disclosure_and_qualification():
+    text = concierge_instructions(None).lower()
+    assert "record" in text  # do not repeat the recording notice
+    assert "budget" in text
+    assert "timeline" in text
+    assert "financing" in text
+    assert "area" in text
+    assert "property specialist" in text  # knows where to hand off searches
+    assert "scheduling specialist" in text
+
+
+def test_property_covers_search_and_handoff():
+    text = property_instructions(None).lower()
+    assert "search" in text
+    assert "only" in text  # only the realtor's connected listings
+    assert "never invent" in text
+    assert "scheduling specialist" in text
+
+
+def test_scheduling_covers_availability_and_booking():
+    text = scheduling_instructions(None).lower()
+    assert "showing" in text
+    assert "book" in text
+    assert "offer only" in text  # never invent a time
+
+
+def test_persona_preamble_personalizes_each_specialist():
+    persona = {"name": "Morgan Bell", "agency": "Bluewater Homes"}
+    for build in (
+        concierge_instructions,
+        property_instructions,
+        scheduling_instructions,
+    ):
+        assert "Morgan Bell" in build(persona)
