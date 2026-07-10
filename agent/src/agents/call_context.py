@@ -282,6 +282,8 @@ class CallContext:
         if self.api is not None:
             try:
                 if self.room:
-                    await post_call_log(self.api, self.room, buyer_phone=self.last_phone)
+                    await post_call_log(
+                        self.api, self.room, buyer_phone=self.last_phone
+                    )
             finally:
                 await self.api.aclose()
