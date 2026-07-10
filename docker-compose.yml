@@ -65,6 +65,11 @@ services:
       # server_url), so it must be host-reachable: localhost, not the internal
       # docker hostname the agent uses.
       LIVEKIT_URL: ws://localhost:7880
+      # The Super Agents live-graph registry (src/runtime/live_agents.py) is in-process:
+      # the voice worker POSTs agent state and the console reads it back over SSE. A single
+      # gunicorn worker keeps both on one registry so a self-hosted node shows a consistent
+      # live graph. Plenty for a solo realtor; raise it only behind shared state.
+      WEB_CONCURRENCY: "1"
     volumes:
       # Persist Cognee's local artifacts (datasets, cache) across restarts.
       - cogneedata:/app/.cognee_system
