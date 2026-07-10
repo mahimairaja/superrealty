@@ -9,9 +9,13 @@ resolve is a no-op stub.
 
 from __future__ import annotations
 
+import asyncio
+import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.core.clerk import CurrentTenant
@@ -82,3 +86,37 @@ async def runtime_info(tenant_id: OpenOrcaTenant) -> dict:
 async def resolve_intervention(tenant_id: OpenOrcaTenant) -> dict:
     # RealtyRecall has no interventions; the contract just wants the endpoint present.
     return {"ok": True}
+
+
+def _sse(payload: object) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+async def _event_stream(tenant_id: str) -> AsyncIterator[str]:
+    q = registry.subscribe(tenant_id)
+    try:
+        # Emit the current snapshot immediately so a fresh subscriber renders without waiting.
+        yield _sse(
+            {
+                "type": "snapshot.replace",
+                "snapshot": to_snapshot(registry.snapshot_calls(tenant_id), _now_iso()),
+            }
+        )
+        while True:
+            try:
+                payload = await asyncio.wait_for(q.get(), timeout=15.0)
+                yield _sse(payload)
+            except TimeoutError:
+                # Keep-alive comment so proxies do not drop an idle connection.
+                yield ": keep-alive\n\n"
+    finally:
+        registry.unsubscribe(tenant_id, q)
+
+
+@router.get("/events")
+async def events(tenant_id: OpenOrcaTenant) -> StreamingResponse:
+    return StreamingResponse(
+        _event_stream(tenant_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
